@@ -1,0 +1,8 @@
+﻿User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /owner/
+Disallow: /settings/
+Disallow: /messages/
+
+Sitemap: https://saphara.io/sitemap.xml

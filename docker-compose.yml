@@ -1,0 +1,50 @@
+# Saphara yerel gelistirme yigini: PostgreSQL + API + Web
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: saphara
+      POSTGRES_PASSWORD: saphara
+      POSTGRES_DB: saphara
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saphara"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://saphara:saphara@db:5432/saphara
+      JWT_SECRET: ${JWT_SECRET:-dev_secret_degistir}
+      RPC_URL_BSC: ${RPC_URL_BSC:-https://bsc-dataseed.bnbchain.org}
+      AUTH_DOMAIN: localhost:3000
+      PORT: 4000
+    ports:
+      - "4000:4000"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    depends_on:
+      - api
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      NEXT_PUBLIC_WS_URL: ws://localhost:4000
+      NEXT_PUBLIC_PART_TOKEN_ADDRESS: "0xD95aC89029451c57Adf172192176d7264d49305a"
+      NEXT_PUBLIC_TREASURY_ADDRESS: "0x55B26f8CD67632d7AF9a888c645054Ca76E53455"
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:

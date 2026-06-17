@@ -1,0 +1,889 @@
+// Saphara veritabani semasi (PostgreSQL).
+// Frontend tipleriyle (profil, feed, market, mesaj, bildirim) hizalidir.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------- Kullanici ----------------
+model User {
+  id            String   @id @default(cuid())
+  handle        String   @unique          // @creator
+  name          String
+  bio           String?
+  avatarUrl     String?
+  coverUrl      String?
+  verified      Boolean  @default(false)
+  walletAddress String?  @unique          // EVM adresi (cuzdan baglandiginda)
+  earningsPart  Decimal  @default(0)       // toplam PART kazanci
+  createdAt     DateTime @default(now())
+
+  posts         Post[]
+  reels         Reel[]
+  following     Follow[] @relation("Follower")
+  followers     Follow[] @relation("Following")
+  sentTips      Tip[]    @relation("TipFrom")
+  receivedTips  Tip[]    @relation("TipTo")
+  listings      Listing[]
+  sentMsgs      Message[] @relation("MsgFrom")
+  recvMsgs      Message[] @relation("MsgTo")
+  notifications Notification[]
+  commentList   Comment[]
+  campaigns     Campaign[]
+  bookmarks     Bookmark[]
+  inventory     UserInventory[]
+  stories       Story[]
+  activeFrame          String?
+  deletionRequestedAt  DateTime?
+  isPrivate            Boolean  @default(false)
+  reposts              Repost[]
+  notifPrefs           UserNotificationPrefs?
+  consents             ConsentRecord[]
+  pushSubscriptions    PushSubscription[]
+  adAnalytics          AdImpression[]
+
+  // Gamification
+  stats                UserStats?
+  questProgress        UserQuestProgress[]
+
+  // Communities
+  ownedCommunities     Community[]        @relation("CommunityCreator")
+  communityMemberships CommunityMember[]
+
+  // Subscriptions
+  subscriptions        Subscription[]     @relation("Subscriptions")
+  subscribers          Subscription[]     @relation("Subscribers")
+
+  // Events
+  ownedEvents          Event[]
+  eventAttendees       EventAttendee[]
+
+  // Trust & Safety
+  blocksGiven          Block[]            @relation("Blocker")
+  blocksReceived       Block[]            @relation("Blocked")
+  reports              Report[]           @relation("Reporter")
+
+  // Blog & Launchpad
+  blogPosts            BlogPost[]         @relation("BlogAuthor")
+  launchpadProjects    LaunchpadProject[] @relation("LaunchpadCreator")
+
+  // NFT
+  nftTokens            NftToken[]         @relation("NftOwner")
+  mintedNfts           NftToken[]         @relation("NftMinter")
+  nftWhitelists        NftWhitelist[]
+  ownedCollections     NftCollection[]    @relation("CollectionCreator")
+
+  // DAO
+  daoProposals         DaoProposal[]      @relation("ProposalAuthor")
+  daoVotes             DaoVote[]
+
+  // Referral
+  referralsMade        ReferralEntry[]    @relation("Referrer")
+  referralReceived     ReferralEntry?     @relation("Referred")
+
+  // Onboarding
+  isOnboarded          Boolean            @default(false)
+
+  @@index([walletAddress])
+  @@index([handle])
+}
+
+// ---------------- Block ----------------
+model Block {
+  id        String   @id @default(cuid())
+  blocker   User     @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockerId String
+  blocked   User     @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  blockedId String
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+}
+
+// ---------------- Report ----------------
+model Report {
+  id         String   @id @default(cuid())
+  reporter   User     @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reporterId String
+  targetType String   // "post" | "user" | "reel" | "comment"
+  targetId   String
+  reason     String   // "spam" | "harassment" | "hate_speech" | "misinformation" | "illegal" | "other"
+  details    String?
+  status     String   @default("pending") // "pending" | "reviewed" | "resolved" | "dismissed"
+  createdAt  DateTime @default(now())
+
+  @@index([reporterId])
+  @@index([targetType, targetId])
+  @@index([status])
+}
+
+// ---------------- Takip ----------------
+model Follow {
+  id          String   @id @default(cuid())
+  follower    User     @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followerId  String
+  following   User     @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+  followingId String
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])   // ayni kisiyi iki kez takip edemez
+  @@index([followingId])
+}
+
+// ---------------- Gonderi (akis) ----------------
+model Post {
+  id         String   @id @default(cuid())
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId   String
+  text       String?
+  mediaUrl   String?            // tek medya (geriye uyumlu)
+  mediaUrls  String[]           // carousel: coklu resim/video
+  mediaType  MediaType?
+  likes      Int      @default(0)
+  comments   Int      @default(0)
+  shares     Int      @default(0)
+  // Oneri sinyalleri (recommendation paketiyle hizali)
+  qualityScore Float  @default(0.5)
+  createdAt  DateTime @default(now())
+
+  commentList  Comment[]
+  poll         Poll?
+  bookmarks    Bookmark[]
+  reposts      Repost[]
+  hashtags     PostHashtag[]
+  adSlots      AdImpression[]
+  videoCompletion Float @default(0)
+  saveCount    Int      @default(0)
+  repostCount  Int      @default(0)
+
+  @@index([authorId])
+  @@index([createdAt])
+  @@index([authorId, createdAt(sort: Desc)])
+}
+
+// ---------------- Yorum ----------------
+model Comment {
+  id        String   @id @default(cuid())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId  String
+  text      String
+  likes     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([postId])
+}
+
+// ---------------- Anket (interaktif icerik) ----------------
+model Poll {
+  id        String      @id @default(cuid())
+  post      Post        @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String      @unique
+  question  String
+  options   PollOption[]
+  endsAt    DateTime?
+  createdAt DateTime    @default(now())
+}
+
+model PollOption {
+  id     String     @id @default(cuid())
+  poll   Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  pollId String
+  label  String
+  votes  PollVote[]
+
+  @@index([pollId])
+}
+
+model PollVote {
+  id       String     @id @default(cuid())
+  option   PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  optionId String
+  userId   String
+  createdAt DateTime  @default(now())
+
+  @@unique([optionId, userId])  // bir kullanici bir secenege bir kez oy
+}
+
+// ---------------- Reel ----------------
+model Reel {
+  id         String   @id @default(cuid())
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId   String
+  videoUrl   String
+  posterUrl  String?
+  caption    String?
+  sound      String?
+  durationSec Int?
+  likes      Int      @default(0)
+  comments   Int      @default(0)
+  views      Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@index([authorId])
+}
+
+// ---------------- Market ----------------
+model Listing {
+  id           String        @id @default(cuid())
+  onchainId    BigInt?        @unique        // SapharaMarket sozlesmesindeki id
+  seller       User          @relation(fields: [sellerId], references: [id])
+  sellerId     String
+  title        String
+  description  String?
+  imageUrl     String?
+  category     String        @default("digital") // digital | nft | art | gaming | collectible | other
+  pricePart    Decimal
+  commissionPct Decimal      @default(2.5)   // platform komisyonu
+  status       ListingStatus @default(Listed)
+  metadataURI  String?
+  nftTokenId   String?       // bağlı NFT token (opsiyonel)
+  buyerAddress String?
+  soldAt       DateTime?
+  views        Int           @default(0)
+  createdAt    DateTime      @default(now())
+
+  @@index([sellerId])
+  @@index([status])
+  @@index([category])
+  @@index([createdAt])
+}
+
+// ---------------- Bahsis (tipping) ----------------
+model Tip {
+  id        String   @id @default(cuid())
+  from      User     @relation("TipFrom", fields: [fromId], references: [id])
+  fromId    String
+  to        User     @relation("TipTo", fields: [toId], references: [id])
+  toId      String
+  amount    Decimal
+  token     String                       // address(0)=native, yoksa PART adresi
+  txHash    String?  @unique             // zincir uzeri islem
+  createdAt DateTime @default(now())
+
+  @@index([toId])
+}
+
+// ---------------- Mesaj ----------------
+model Message {
+  id        String   @id @default(cuid())
+  from      User     @relation("MsgFrom", fields: [fromId], references: [id])
+  fromId    String
+  to        User     @relation("MsgTo", fields: [toId], references: [id])
+  toId      String
+  text      String?
+  mediaUrl  String?
+  mediaType String?  // "image" | "video" | "audio"
+  read      Boolean  @default(false)
+  readAt    DateTime?
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+
+  reactions MessageReaction[]
+
+  @@index([toId, fromId])
+  @@index([createdAt])
+}
+
+// ---------------- Mesaj Reaksiyonu ----------------
+model MessageReaction {
+  id        String   @id @default(cuid())
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  @@unique([messageId, userId])
+  @@index([messageId])
+}
+
+// ---------------- Bildirim ----------------
+model Notification {
+  id        String           @id @default(cuid())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  kind      NotificationKind
+  text      String
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([userId, read])
+}
+
+// ---------------- Reklam Kampanyasi ----------------
+model Campaign {
+  id           String   @id @default(cuid())
+  advertiser   User     @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
+  advertiserId String
+  name         String
+  objective    String   // awareness | traffic | conversions | creator_collab
+  budgetPart   Decimal
+  bidPart      Decimal
+  interests    String[]
+  minFollowers Int?
+  geo          String[]
+  headline     String?
+  mediaUrl     String?
+  cta          String?
+  status       String   @default("active") // active | paused | ended
+  spentPart    Decimal  @default(0)
+  impressions  Int      @default(0)
+  clicks       Int      @default(0)
+  budgetRemaining Decimal @default(0)
+  startDate    DateTime?
+  endDate      DateTime?
+  createdAt    DateTime @default(now())
+
+  adImpressions AdImpression[]
+
+  @@index([advertiserId])
+  @@index([status])
+}
+
+// ---------------- Yer Imi (bookmark) ----------------
+model Bookmark {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId])
+  @@index([userId])
+}
+
+// ---------------- Sanal Magaza (uygulama ici satin alma) ----------------
+model StoreItem {
+  id         String   @id @default(cuid())
+  kind       StoreItemKind
+  name       String
+  imageUrl   String              // urun gorseli / cerceve / avatar
+  pricePart  Decimal             // PART cinsinden (~$10 = ornek deger)
+  priceUsd   Decimal?            // referans USD fiyat
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  inventory  UserInventory[]
+}
+
+model UserInventory {
+  id        String    @id @default(cuid())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  item      StoreItem @relation(fields: [itemId], references: [id])
+  itemId    String
+  equipped  Boolean   @default(false)   // su an kullaniliyor mu (avatar/cerceve)
+  txHash    String?                     // zincir uzeri odeme
+  createdAt DateTime  @default(now())
+
+  @@unique([userId, itemId])
+  @@index([userId])
+}
+
+// ---------------- Story (24 saatte kaybolan icerik) ----------------
+model Story {
+  id        String   @id @default(cuid())
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId  String
+  mediaUrl  String
+  mediaType MediaType
+  caption   String?
+  views     Int      @default(0)
+  createdAt DateTime @default(now())
+  expiresAt DateTime              // createdAt + 24 saat
+
+  @@index([authorId])
+  @@index([expiresAt])
+}
+
+// ---------------- Platform Ayarlari (owner panelinden) ----------------
+model PlatformSetting {
+  key       String   @id          // ornek: "part_usd_rate"
+  value     String                // string olarak saklanir, tipe gore parse edilir
+  updatedAt DateTime @updatedAt
+}
+
+enum StoreItemKind {
+  avatar          // profil resmi
+  frame           // profil cercevesi
+  badge           // rozet
+  theme           // tema
+}
+
+enum MediaType {
+  image
+  video
+}
+
+enum ListingStatus {
+  Listed
+  Purchased
+  Completed
+  Refunded
+  Disputed
+}
+
+enum NotificationKind {
+  like
+  follow
+  tip
+  comment
+  mention
+  purchase
+  repost
+  system
+}
+
+// ---------------- Kullanici Bildirim Tercihleri ----------------
+model UserNotificationPrefs {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String   @unique
+  likes     Boolean  @default(true)
+  comments  Boolean  @default(true)
+  follows   Boolean  @default(true)
+  tips      Boolean  @default(true)
+  dm        Boolean  @default(true)
+  reposts   Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------- KVKK Riza Kaydi ----------------
+model ConsentRecord {
+  id          String   @id @default(cuid())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  analytics   Boolean  @default(false)
+  marketing   Boolean  @default(false)
+  consentedAt DateTime @default(now())
+  ip          String?
+
+  @@index([userId])
+}
+
+// ---------------- Web Push Aboneligi ----------------
+model PushSubscription {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  endpoint  String
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, endpoint])
+  @@index([userId])
+}
+
+// ---------------- Repost ----------------
+model Repost {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId])
+  @@index([userId])
+  @@index([postId])
+}
+
+// ---------------- Hashtag ----------------
+model Hashtag {
+  id        String      @id @default(cuid())
+  tag       String      @unique
+  postCount Int         @default(0)
+  posts     PostHashtag[]
+  createdAt DateTime    @default(now())
+
+  @@index([postCount(sort: Desc)])
+}
+
+model PostHashtag {
+  id        String   @id @default(cuid())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String
+  hashtag   Hashtag  @relation(fields: [hashtagId], references: [id], onDelete: Cascade)
+  hashtagId String
+
+  @@unique([postId, hashtagId])
+  @@index([hashtagId])
+}
+
+// ─────────────────── Gamification ───────────────────
+
+model UserStats {
+  id           String    @id @default(cuid())
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String    @unique
+  xp           Int       @default(0)
+  level        Int       @default(1)
+  loginStreak  Int       @default(0)
+  lastLoginAt  DateTime?
+  referralCode String    @unique
+  referredBy   String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+enum QuestKind {
+  daily
+  weekly
+  achievement
+  onboarding
+}
+
+model Quest {
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  xpReward    Int
+  partReward  Decimal   @default(0)
+  icon        String?
+  kind        QuestKind
+  target      Int       @default(1)
+  active      Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  progress    UserQuestProgress[]
+}
+
+model UserQuestProgress {
+  id        String    @id @default(cuid())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  quest     Quest     @relation(fields: [questId], references: [id])
+  questId   String
+  progress  Int       @default(0)
+  completed Boolean   @default(false)
+  claimedAt DateTime?
+  resetAt   DateTime?
+  createdAt DateTime  @default(now())
+
+  @@unique([userId, questId])
+  @@index([userId])
+}
+
+// ─────────────────── Topluluklar (Communities) ───────────────────
+
+model Community {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?
+  imageUrl    String?
+  coverUrl    String?
+  creator     User      @relation("CommunityCreator", fields: [creatorId], references: [id])
+  creatorId   String
+  members     CommunityMember[]
+  posts       CommunityPost[]
+  private     Boolean   @default(false)
+  memberCount Int       @default(1)
+  createdAt   DateTime  @default(now())
+
+  @@index([creatorId])
+}
+
+model CommunityMember {
+  id          String    @id @default(cuid())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  communityId String
+  role        String    @default("member")
+  joinedAt    DateTime  @default(now())
+
+  @@unique([userId, communityId])
+  @@index([communityId])
+}
+
+model CommunityPost {
+  id          String    @id @default(cuid())
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  communityId String
+  postId      String
+  createdAt   DateTime  @default(now())
+
+  @@unique([communityId, postId])
+}
+
+// ─────────────────── Creator Abonelikleri ───────────────────
+
+model Subscription {
+  id           String    @id @default(cuid())
+  subscriber   User      @relation("Subscriptions", fields: [subscriberId], references: [id])
+  subscriberId String
+  creator      User      @relation("Subscribers", fields: [creatorId], references: [id])
+  creatorId    String
+  pricePart    Decimal
+  currency     String    @default("PART")
+  txHash       String?
+  expiresAt    DateTime
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+
+  @@unique([subscriberId, creatorId])
+  @@index([creatorId])
+  @@index([subscriberId])
+}
+
+// ─────────────────── Etkinlikler (Events) ───────────────────
+
+model Event {
+  id          String    @id @default(cuid())
+  organizer   User      @relation(fields: [organizerId], references: [id])
+  organizerId String
+  title       String
+  description String?
+  imageUrl    String?
+  startAt     DateTime
+  endAt       DateTime?
+  location    String?
+  online      Boolean   @default(true)
+  maxAttendees Int?
+  pricePart   Decimal   @default(0)
+  attendees   EventAttendee[]
+  createdAt   DateTime  @default(now())
+
+  @@index([organizerId])
+  @@index([startAt])
+}
+
+model EventAttendee {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId   String
+  status    String   @default("going")
+  joinedAt  DateTime @default(now())
+
+  @@unique([userId, eventId])
+}
+
+// ─────────────────── Blog ───────────────────
+
+model BlogPost {
+  id          String   @id @default(cuid())
+  author      User     @relation("BlogAuthor", fields: [authorId], references: [id])
+  authorId    String
+  title       String
+  slug        String   @unique
+  excerpt     String?
+  content     String
+  coverUrl    String?
+  category    String   @default("general")
+  tags        String[]
+  readingMins Int      @default(5)
+  published   Boolean  @default(true)
+  featured    Boolean  @default(false)
+  likes       Int      @default(0)
+  views       Int      @default(0)
+  hasPoll     Boolean  @default(false)
+  pollQuestion String?
+  pollOptions  String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([authorId])
+  @@index([category])
+  @@index([createdAt])
+  @@index([featured])
+}
+
+// ─────────────────── Launchpad ───────────────────
+
+model LaunchpadProject {
+  id           String   @id @default(cuid())
+  creator      User     @relation("LaunchpadCreator", fields: [creatorId], references: [id])
+  creatorId    String
+  name         String
+  symbol       String
+  tagline      String?
+  description  String
+  logoUrl      String?
+  bannerUrl    String?
+  websiteUrl   String?
+  twitterUrl   String?
+  telegramUrl  String?
+  whitepaperUrl String?
+  targetAmount  Decimal  @default(0)      // PART cinsinden hedef
+  raisedAmount  Decimal  @default(0)
+  tokenPrice    Decimal  @default(0)
+  totalSupply   Decimal  @default(0)
+  minBuy        Decimal  @default(100)
+  maxBuy        Decimal  @default(10000)
+  status        String   @default("upcoming") // upcoming | active | ended | cancelled
+  startAt       DateTime
+  endAt         DateTime
+  contractAddress String?
+  chain         String   @default("BSC")
+  participants  Int      @default(0)
+  tgeUnlockPct  Int      @default(15)    // TGE'de serbest bırakılacak % (5-50)
+  cliffMonths   Int      @default(1)     // cliff süresi (ay)
+  linearMonths  Int      @default(9)     // lineer vesting süresi (ay)
+  createdAt     DateTime @default(now())
+
+  @@index([creatorId])
+  @@index([status])
+  @@index([startAt])
+}
+
+// ─────────────────── NFT ───────────────────
+
+model NftCollection {
+  id            String   @id @default(cuid())
+  creator       User     @relation("CollectionCreator", fields: [creatorId], references: [id])
+  creatorId     String
+  name          String
+  symbol        String
+  description   String?
+  imageUrl      String?
+  bannerUrl     String?
+  mintPrice     Decimal                        // PART per mint (normal)
+  whitelistPrice Decimal?                      // PART per mint (whitelist — cheaper)
+  maxSupply     Int
+  minted        Int      @default(0)
+  maxPerWallet  Int      @default(5)
+  royaltyPct    Decimal  @default(2.5)         // platform + creator royalty
+  status        String   @default("upcoming")  // upcoming | active | ended | soldout
+  chain         String   @default("BSC")
+  contractAddress String?
+  metadataBase  String?
+  revealAt      DateTime?
+  tokens        NftToken[]
+  whitelist     NftWhitelist[]
+  createdAt     DateTime @default(now())
+
+  @@index([creatorId])
+  @@index([status])
+}
+
+model NftToken {
+  id           String        @id @default(cuid())
+  tokenId      Int
+  collection   NftCollection @relation(fields: [collectionId], references: [id])
+  collectionId String
+  owner        User          @relation("NftOwner", fields: [ownerId], references: [id])
+  ownerId      String
+  minter       User          @relation("NftMinter", fields: [minterId], references: [id])
+  minterId     String
+  name         String
+  description  String?
+  imageUrl     String
+  attributes   Json?         // rarity traits: [{trait_type, value}]
+  rarity       String        @default("common") // common | uncommon | rare | epic | legendary
+  listed       Boolean       @default(false)
+  listingPrice Decimal?      // PART — aktif market fiyatı
+  txHash       String?
+  mintedAt     DateTime      @default(now())
+  soldAt       DateTime?
+  salePrice    Decimal?
+
+  @@unique([collectionId, tokenId])
+  @@index([ownerId])
+  @@index([collectionId])
+  @@index([listed])
+}
+
+model NftWhitelist {
+  id           String        @id @default(cuid())
+  collection   NftCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collectionId String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  slots        Int           @default(1)       // kaç adet mint hakkı
+  used         Int           @default(0)
+  source       String        @default("manual") // manual | referral | og | partner
+  createdAt    DateTime      @default(now())
+
+  @@unique([collectionId, userId])
+  @@index([collectionId])
+  @@index([userId])
+}
+
+// ─────────────────── DAO ───────────────────
+
+model DaoProposal {
+  id           String   @id @default(cuid())
+  author       User     @relation("ProposalAuthor", fields: [authorId], references: [id])
+  authorId     String
+  title        String
+  description  String
+  type         String   @default("general")  // general | parameter | treasury | feature | emergency
+  status       String   @default("active")   // active | passed | rejected | executed | cancelled
+  votesFor     Int      @default(0)
+  votesAgainst Int      @default(0)
+  votesAbstain Int      @default(0)
+  quorum       Int      @default(50)         // minimum katılım yüzdesi
+  passThreshold Int     @default(60)         // geçmesi için gereken oy yüzdesi
+  endsAt       DateTime
+  executedAt   DateTime?
+  treasuryAmount Decimal @default(0)         // treasury teklifleri için miktar
+  treasuryRecipient String?
+  tags         String[]
+  votes        DaoVote[]
+  createdAt    DateTime @default(now())
+
+  @@index([authorId])
+  @@index([status])
+  @@index([endsAt])
+}
+
+model DaoVote {
+  id         String      @id @default(cuid())
+  proposal   DaoProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  proposalId String
+  voter      User        @relation(fields: [voterId], references: [id])
+  voterId    String
+  vote       String      // "for" | "against" | "abstain"
+  votePower  Int         @default(1)  // PART bakiyesine göre ağırlıklı
+  reason     String?     // açıklama (opsiyonel)
+  createdAt  DateTime    @default(now())
+
+  @@unique([proposalId, voterId])
+  @@index([proposalId])
+  @@index([voterId])
+}
+
+// ─────────────────── Referral ───────────────────
+
+model ReferralEntry {
+  id          String   @id @default(cuid())
+  referrer    User     @relation("Referrer", fields: [referrerId], references: [id])
+  referrerId  String
+  referred    User     @relation("Referred", fields: [referredId], references: [id])
+  referredId  String   @unique
+  rewardPart  Decimal  @default(50)
+  paid        Boolean  @default(false)
+  paidAt      DateTime?
+  source      String?  // utm / kampanya kaynağı
+  createdAt   DateTime @default(now())
+
+  @@index([referrerId])
+}
+
+// ---------------- Reklam Gosterimleri ----------------
+model AdImpression {
+  id         String   @id @default(cuid())
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaignId String
+  user       User?    @relation(fields: [userId], references: [id])
+  userId     String?
+  post       Post?    @relation(fields: [postId], references: [id])
+  postId     String?
+  type       String   // "impression" | "click"
+  createdAt  DateTime @default(now())
+
+  @@index([campaignId])
+  @@index([createdAt])
+}

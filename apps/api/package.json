@@ -1,0 +1,39 @@
+{
+  "name": "@saphara/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch --env-file=.env src/server.ts",
+    "build": "tsc",
+    "start": "node --env-file=.env dist/server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "prisma:seed": "tsx --env-file=.env prisma/seed.ts",
+    "seed:bots": "tsx --env-file=.env prisma/seed-bots.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "fastify": "^4.28.0",
+    "@fastify/cors": "^9.0.0",
+    "@fastify/websocket": "^10.0.0",
+    "@prisma/client": "^5.16.0",
+    "@saphara/security": "workspace:*",
+    "@saphara/recommendation": "workspace:*",
+    "@saphara/config": "workspace:*",
+    "viem": "^2.21.0",
+    "@aws-sdk/client-s3": "^3.600.0",
+    "@aws-sdk/s3-request-presigner": "^3.600.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.16.0",
+    "typescript": "^5.4.0",
+    "prisma": "^5.16.0",
+    "@types/node": "^20.12.0",
+    "vitest": "^2.1.0"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}

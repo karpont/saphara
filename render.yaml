@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: saphara-api
+    runtime: node
+    rootDir: apps/api
+    buildCommand: npm install -g pnpm && pnpm install && pnpm build
+    startCommand: pnpm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: saphara-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        value: https://saphara.io,https://www.saphara.io
+      - key: NEXT_PUBLIC_PART_TOKEN_ADDRESS
+        value: 0xD95aC89029451c57Adf172192176d7264d49305a
+      - key: NEXT_PUBLIC_TREASURY_ADDRESS
+        value: 0x55B26f8CD67632d7AF9a888c645054Ca76E53455
+      - key: TREASURY_ADDRESS
+        value: 0x55B26f8CD67632d7AF9a888c645054Ca76E53455
+      - key: NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
+        value: fbbb3188505f9fc9d192fced8c2a313d
+      - key: BSC_RPC_URL
+        value: https://bsc-dataseed1.binance.org
+      - key: BOT_SCAN_INTERVAL_MS
+        value: 900000
+
+databases:
+  - name: saphara-db
+    databaseName: saphara
+    user: saphara
+    plan: free

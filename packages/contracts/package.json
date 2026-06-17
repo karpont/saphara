@@ -1,0 +1,19 @@
+{
+  "name": "@saphara/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:bsc-testnet": "hardhat run scripts/deploy.ts --network bscTestnet",
+    "deploy:bsc": "hardhat run scripts/deploy.ts --network bsc"
+  },
+  "devDependencies": {
+    "hardhat": "^2.22.0",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@openzeppelin/contracts": "^5.0.0",
+    "dotenv": "^16.4.0",
+    "chai": "^4.4.0",
+    "@nomicfoundation/hardhat-chai-matchers": "^2.0.0"
+  }
+}

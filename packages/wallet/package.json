@@ -1,0 +1,22 @@
+{
+  "name": "@saphara/wallet",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "wagmi": "^2.0.0",
+    "viem": "^2.0.0",
+    "@tanstack/react-query": "^5.0.0"
+  },
+  "devDependencies": {
+    "wagmi": "^2.19.5",
+    "viem": "^2.21.0",
+    "@tanstack/react-query": "^5.51.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc"
+  }
+}

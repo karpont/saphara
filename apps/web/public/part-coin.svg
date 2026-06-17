@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <defs>
+    <radialGradient id="coinGrad" cx="38%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#FFE066"/>
+      <stop offset="40%" stop-color="#F0B429"/>
+      <stop offset="100%" stop-color="#B07A00"/>
+    </radialGradient>
+    <radialGradient id="innerGrad" cx="40%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#FFF3AA"/>
+      <stop offset="100%" stop-color="#D4920A"/>
+    </radialGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#B07A00" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- Outer coin ring -->
+  <circle cx="60" cy="60" r="56" fill="url(#coinGrad)" filter="url(#shadow)"/>
+
+  <!-- Edge detail ring -->
+  <circle cx="60" cy="60" r="56" fill="none" stroke="#B07A00" stroke-width="3" stroke-opacity="0.3"/>
+
+  <!-- Inner coin face -->
+  <circle cx="60" cy="60" r="46" fill="url(#innerGrad)"/>
+  <circle cx="60" cy="60" r="46" fill="none" stroke="#F0B429" stroke-width="1.5" stroke-opacity="0.5"/>
+
+  <!-- P letter - stylized -->
+  <text x="60" y="72"
+    font-family="'Arial Black', 'Helvetica Neue', sans-serif"
+    font-size="52" font-weight="900"
+    text-anchor="middle"
+    fill="#7A4E00"
+    opacity="0.15"
+    letter-spacing="-2">PART</text>
+
+  <!-- P letter main -->
+  <text x="30" y="75"
+    font-family="'Arial Black', 'Helvetica Neue', sans-serif"
+    font-size="46" font-weight="900"
+    fill="#7A4E00">P</text>
+
+  <!-- ART letters -->
+  <text x="60" y="75"
+    font-family="'Arial Black', 'Helvetica Neue', sans-serif"
+    font-size="28" font-weight="800"
+    fill="#5C3A00"
+    text-anchor="middle">ART</text>
+
+  <!-- Bottom text -->
+  <text x="60" y="100"
+    font-family="'Arial', sans-serif"
+    font-size="9" font-weight="600"
+    fill="#7A4E00"
+    text-anchor="middle"
+    letter-spacing="2">BNB CHAIN</text>
+
+  <!-- Shine effect -->
+  <ellipse cx="44" cy="38" rx="12" ry="7" fill="white" opacity="0.22" transform="rotate(-30 44 38)"/>
+</svg>

@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  unit:
+    name: Birim + entegrasyon testleri
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Tip kontrolu
+        run: pnpm typecheck
+      - name: Birim testleri (security, recommendation, analytics, api)
+        run: pnpm test
+
+  contracts:
+    name: Sozlesme derleme + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Derle
+        run: pnpm --filter @saphara/contracts compile
+      - name: Test
+        run: pnpm --filter @saphara/contracts test
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: saphara
+          POSTGRES_PASSWORD: saphara
+          POSTGRES_DB: saphara
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U saphara" --health-interval 5s
+          --health-timeout 5s --health-retries 5
+    env:
+      DATABASE_URL: postgresql://saphara:saphara@localhost:5432/saphara
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Prisma migrate + seed
+        run: |
+          pnpm --filter @saphara/api prisma migrate deploy
+          pnpm --filter @saphara/api prisma:seed
+      - name: API'yi baslat
+        run: pnpm --filter @saphara/api start &
+      - name: Web build
+        run: pnpm --filter @saphara/web build
+      - name: Playwright kur
+        run: pnpm --filter @saphara/e2e exec playwright install --with-deps chromium
+      - name: E2E calistir
+        run: pnpm --filter @saphara/e2e test
