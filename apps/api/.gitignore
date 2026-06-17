@@ -1,0 +1,2 @@
+# Keep dist tracked for Render deployment (pre-built artifacts)
+!dist/
