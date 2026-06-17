@@ -1,12 +1,12 @@
 #!/bin/bash
 set -e
-echo "=== Step 1: Install pnpm ==="
+echo "[1/3] Install pnpm..."
 npm install -g pnpm@9
-echo "=== Step 2: pnpm install ==="
+
+echo "[2/3] Install workspace dependencies..."
 pnpm install --no-frozen-lockfile
-echo "=== Step 3: Build API and deps ==="
-pnpm --filter @saphara/api... build
-echo "=== Step 4: Prisma generate ==="
-cd apps/api && npx prisma generate --schema=./prisma/schema.prisma
-cd ../..
-echo "=== Build complete ==="
+
+echo "[3/3] Generate Prisma client..."
+pnpm --filter @saphara/api exec prisma generate
+
+echo "Build complete!"
