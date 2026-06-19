@@ -103,7 +103,6 @@ async function main() {
   /* â”€â”€ Error handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   app.setErrorHandler((err, _req, reply) => {
     const msg = (err as any).message ?? "";
-    console.error("ERR_HANDLER:", err);
     if (msg.includes("Can't reach database") || msg.includes("Connection refused") || (err as any).code === "P1001") {
       return reply.code(503).send({ error: "Database unavailable. Please try again shortly.", code: "DB_UNAVAILABLE" });
     }
