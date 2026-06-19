@@ -100698,7 +100698,7 @@ async function getPartMarketData() {
     try {
       const res = await fetch(
         `https://api.geckoterminal.com/api/v2/networks/bsc/tokens/${PART_CONTRACT}`,
-        { headers: { "Accept": "application/json;version=20230302" } }
+        { headers: { "Accept": "application/json;version=20230302", "User-Agent": "Mozilla/5.0 (compatible; Saphara/1.0)" }, signal: AbortSignal.timeout(8e3) }
       );
       if (res.ok) {
         const data2 = await res.json();
@@ -100715,13 +100715,16 @@ async function getPartMarketData() {
             source: "dexscreener"
           };
         }
+      } else {
+        console.error("GeckoTerminal HTTP", res.status, await res.text().catch(() => ""));
       }
-    } catch {
+    } catch (e5) {
+      console.error("GeckoTerminal fetch failed:", e5.message);
     }
     try {
       const res = await fetch(
         `https://api.dexscreener.com/latest/dex/tokens/${PART_CONTRACT}`,
-        { headers: { "User-Agent": "Saphara/1.0" } }
+        { headers: { "User-Agent": "Mozilla/5.0 (compatible; Saphara/1.0)" }, signal: AbortSignal.timeout(8e3) }
       );
       if (res.ok) {
         const data2 = await res.json();
@@ -100738,8 +100741,11 @@ async function getPartMarketData() {
             source: "dexscreener"
           };
         }
+      } else {
+        console.error("DexScreener HTTP", res.status, await res.text().catch(() => ""));
       }
-    } catch {
+    } catch (e5) {
+      console.error("DexScreener fetch failed:", e5.message);
     }
     return {
       priceUsd: 0.01,
@@ -100758,9 +100764,12 @@ async function getBnbData() {
     try {
       const res = await fetch(
         "https://api.coingecko.com/api/v3/simple/price?ids=binancecoin&vs_currencies=usd&include_24hr_vol=true&include_24hr_change=true&include_market_cap=true",
-        { headers: { "Accept": "application/json" } }
+        { headers: { "Accept": "application/json", "User-Agent": "Mozilla/5.0 (compatible; Saphara/1.0)" }, signal: AbortSignal.timeout(8e3) }
       );
-      if (!res.ok) throw new Error("CoinGecko error");
+      if (!res.ok) {
+        console.error("CoinGecko BNB HTTP", res.status, await res.text().catch(() => ""));
+        throw new Error("CoinGecko error");
+      }
       const d5 = await res.json();
       const bnb = d5.binancecoin;
       return {
@@ -100769,7 +100778,8 @@ async function getBnbData() {
         volume24h: bnb.usd_24h_vol ?? 0,
         marketCap: bnb.usd_market_cap ?? 0
       };
-    } catch {
+    } catch (e5) {
+      console.error("CoinGecko BNB fetch failed:", e5.message);
       return { priceUsd: 600, priceChange24h: 0, volume24h: 0, marketCap: 0 };
     }
   });
@@ -100791,9 +100801,12 @@ async function getTopCrypto() {
     try {
       const res = await fetch(
         "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1&sparkline=false",
-        { headers: { "Accept": "application/json" }, signal: AbortSignal.timeout(8e3) }
+        { headers: { "Accept": "application/json", "User-Agent": "Mozilla/5.0 (compatible; Saphara/1.0)" }, signal: AbortSignal.timeout(8e3) }
       );
-      if (!res.ok) throw new Error("CoinGecko error");
+      if (!res.ok) {
+        console.error("CoinGecko top crypto HTTP", res.status, await res.text().catch(() => ""));
+        throw new Error("CoinGecko error");
+      }
       const data2 = await res.json();
       if (!Array.isArray(data2) || data2.length === 0) throw new Error("CoinGecko empty");
       return data2.map((c5) => ({
@@ -100805,7 +100818,8 @@ async function getTopCrypto() {
         marketCap: c5.market_cap ?? 0,
         image: c5.image
       }));
-    } catch {
+    } catch (e5) {
+      console.error("CoinGecko top crypto fetch failed:", e5.message);
       return TOP_CRYPTO_FALLBACK;
     }
   });

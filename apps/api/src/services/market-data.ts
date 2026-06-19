@@ -53,7 +53,7 @@ export async function getPartMarketData(): Promise<PartMarketData> {
     try {
       const res = await fetch(
         `https://api.geckoterminal.com/api/v2/networks/bsc/tokens/${PART_CONTRACT}`,
-        { headers: { "Accept": "application/json;version=20230302" } }
+        { headers: { "Accept": "application/json;version=20230302", "User-Agent": "Mozilla/5.0 (compatible; Saphara/1.0)" }, signal: AbortSignal.timeout(8000) }
       );
       if (res.ok) {
         const data: any = await res.json();
@@ -70,14 +70,16 @@ export async function getPartMarketData(): Promise<PartMarketData> {
             source: "dexscreener",
           };
         }
+      } else {
+        console.error("GeckoTerminal HTTP", res.status, await res.text().catch(() => ""));
       }
-    } catch { /* devam */ }
+    } catch (e) { console.error("GeckoTerminal fetch failed:", (e as Error).message); }
 
     // 2) DexScreener fallback
     try {
       const res = await fetch(
         `https://api.dexscreener.com/latest/dex/tokens/${PART_CONTRACT}`,
-        { headers: { "User-Agent": "Saphara/1.0" } }
+        { headers: { "User-Agent": "Mozilla/5.0 (compatible; Saphara/1.0)" }, signal: AbortSignal.timeout(8000) }
       );
       if (res.ok) {
         const data: any = await res.json();
@@ -94,8 +96,10 @@ export async function getPartMarketData(): Promise<PartMarketData> {
             source: "dexscreener",
           };
         }
+      } else {
+        console.error("DexScreener HTTP", res.status, await res.text().catch(() => ""));
       }
-    } catch { /* devam */ }
+    } catch (e) { console.error("DexScreener fetch failed:", (e as Error).message); }
 
     // 3) Nihai fallback: platform sabit fiyat
     return {
@@ -112,9 +116,9 @@ export async function getBnbData(): Promise<BnbData> {
     try {
       const res = await fetch(
         "https://api.coingecko.com/api/v3/simple/price?ids=binancecoin&vs_currencies=usd&include_24hr_vol=true&include_24hr_change=true&include_market_cap=true",
-        { headers: { "Accept": "application/json" } }
+        { headers: { "Accept": "application/json", "User-Agent": "Mozilla/5.0 (compatible; Saphara/1.0)" }, signal: AbortSignal.timeout(8000) }
       );
-      if (!res.ok) throw new Error("CoinGecko error");
+      if (!res.ok) { console.error("CoinGecko BNB HTTP", res.status, await res.text().catch(() => "")); throw new Error("CoinGecko error"); }
       const d: any = await res.json();
       const bnb = d.binancecoin;
       return {
@@ -123,7 +127,8 @@ export async function getBnbData(): Promise<BnbData> {
         volume24h: bnb.usd_24h_vol ?? 0,
         marketCap: bnb.usd_market_cap ?? 0,
       };
-    } catch {
+    } catch (e) {
+      console.error("CoinGecko BNB fetch failed:", (e as Error).message);
       return { priceUsd: 600, priceChange24h: 0, volume24h: 0, marketCap: 0 };
     }
   });
@@ -148,9 +153,9 @@ export async function getTopCrypto(): Promise<CryptoTicker[]> {
     try {
       const res = await fetch(
         "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1&sparkline=false",
-        { headers: { "Accept": "application/json" }, signal: AbortSignal.timeout(8000) }
+        { headers: { "Accept": "application/json", "User-Agent": "Mozilla/5.0 (compatible; Saphara/1.0)" }, signal: AbortSignal.timeout(8000) }
       );
-      if (!res.ok) throw new Error("CoinGecko error");
+      if (!res.ok) { console.error("CoinGecko top crypto HTTP", res.status, await res.text().catch(() => "")); throw new Error("CoinGecko error"); }
       const data = (await res.json()) as any[];
       if (!Array.isArray(data) || data.length === 0) throw new Error("CoinGecko empty");
       return data.map((c) => ({
@@ -162,7 +167,8 @@ export async function getTopCrypto(): Promise<CryptoTicker[]> {
         marketCap: c.market_cap ?? 0,
         image: c.image,
       }));
-    } catch {
+    } catch (e) {
+      console.error("CoinGecko top crypto fetch failed:", (e as Error).message);
       return TOP_CRYPTO_FALLBACK;
     }
   });
