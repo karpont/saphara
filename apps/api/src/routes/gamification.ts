@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../db/client";
 import { requireAuth } from "./auth";
+import { calcReferralReward } from "../services/referral-rewards";
 
 const LEVEL_XP = (lvl: number) => Math.floor(100 * Math.pow(lvl, 1.6));
 const xpToLevel = (xp: number) => {
@@ -189,13 +190,17 @@ export async function registerGamificationRoutes(app: FastifyInstance) {
 
     await prisma.userStats.update({ where: { userId }, data: { referredBy: referrerStats.userId } });
 
-    // İkisine de ödül
+    // Davet edenin kademeli ödülü (referral sayısına göre, USD değeri sabit)
+    const priorCount = await prisma.userStats.count({ where: { referredBy: referrerStats.userId } });
+    const referrerReward = await calcReferralReward(priorCount); // priorCount zaten bu kaydı dahil etti (update yukarıda)
+    const joinerReward = Math.round((referrerReward / 2) * 100) / 100; // katılana yarı oranda hoş geldin ödülü
+
     await addXp(userId, 100);
     await addXp(referrerStats.userId, 200);
-    await prisma.user.update({ where: { id: userId }, data: { earningsPart: { increment: 50 } } });
-    await prisma.user.update({ where: { id: referrerStats.userId }, data: { earningsPart: { increment: 100 } } });
+    await prisma.user.update({ where: { id: userId }, data: { earningsPart: { increment: joinerReward } } });
+    await prisma.user.update({ where: { id: referrerStats.userId }, data: { earningsPart: { increment: referrerReward } } });
 
-    return { success: true, xpEarned: 100, partEarned: 50 };
+    return { success: true, xpEarned: 100, partEarned: joinerReward, referrerEarned: referrerReward };
   });
 
   /* ── Liderlik tablosu ── */

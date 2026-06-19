@@ -100683,7 +100683,7 @@ function computeBadges(user) {
 }
 
 // apps/api/src/services/market-data.ts
-var TTL_MS2 = 60 * 1e3;
+var TTL_MS2 = 5 * 60 * 1e3;
 var cache6 = /* @__PURE__ */ new Map();
 async function cached(key, fn) {
   const hit = cache6.get(key);
@@ -100949,6 +100949,26 @@ async function registerAnalyticsRoutes(app) {
   });
 }
 
+// apps/api/src/services/referral-rewards.ts
+var USD_TIERS = [
+  { maxCount: 10, usdTarget: 0.05 },
+  // 1-10. referral
+  { maxCount: 20, usdTarget: 0.05 },
+  // 11-20. referral
+  { maxCount: 40, usdTarget: 0.1 },
+  // 21-40. referral
+  { maxCount: Infinity, usdTarget: 0.2 }
+  // 41+. referral
+];
+var MIN_PRICE_FLOOR = 1e-4;
+async function calcReferralReward(referralCount) {
+  const tier = USD_TIERS.find((t) => referralCount <= t.maxCount) ?? USD_TIERS[USD_TIERS.length - 1];
+  const { priceUsd } = await getPartMarketData();
+  const price = priceUsd > MIN_PRICE_FLOOR ? priceUsd : MIN_PRICE_FLOOR;
+  const partAmount = tier.usdTarget / price;
+  return Math.round(partAmount * 100) / 100;
+}
+
 // apps/api/src/routes/gamification.ts
 var LEVEL_XP = (lvl) => Math.floor(100 * Math.pow(lvl, 1.6));
 var xpToLevel = (xp) => {
@@ -101120,11 +101140,14 @@ async function registerGamificationRoutes(app) {
     const myStats = await getOrCreateStats(userId);
     if (myStats.referredBy) return reply.code(409).send({ error: "Referral kodu zaten kulland\u0131n\u0131z" });
     await prisma.userStats.update({ where: { userId }, data: { referredBy: referrerStats.userId } });
+    const priorCount = await prisma.userStats.count({ where: { referredBy: referrerStats.userId } });
+    const referrerReward = await calcReferralReward(priorCount);
+    const joinerReward = Math.round(referrerReward / 2 * 100) / 100;
     await addXp(userId, 100);
     await addXp(referrerStats.userId, 200);
-    await prisma.user.update({ where: { id: userId }, data: { earningsPart: { increment: 50 } } });
-    await prisma.user.update({ where: { id: referrerStats.userId }, data: { earningsPart: { increment: 100 } } });
-    return { success: true, xpEarned: 100, partEarned: 50 };
+    await prisma.user.update({ where: { id: userId }, data: { earningsPart: { increment: joinerReward } } });
+    await prisma.user.update({ where: { id: referrerStats.userId }, data: { earningsPart: { increment: referrerReward } } });
+    return { success: true, xpEarned: 100, partEarned: joinerReward, referrerEarned: referrerReward };
   });
   app.get("/gamification/leaderboard", async () => {
     const DEMO = [
@@ -102853,7 +102876,6 @@ async function registerDaoRoutes(app) {
 }
 
 // apps/api/src/routes/referral.ts
-var REFERRAL_REWARD_PART = 50;
 async function registerReferralRoutes(app) {
   app.get("/referral/my", async (req, reply) => {
     const userId = requireAuth(req, reply);
@@ -102896,15 +102918,17 @@ async function registerReferralRoutes(app) {
     });
     if (!referrerStats) return reply.code(404).send({ error: "Ge\xE7ersiz referral kodu" });
     if (referrerStats.userId === userId) return reply.code(400).send({ error: "Kendi kodunuzu kullanamazs\u0131n\u0131z" });
+    const priorCount = await prisma.referralEntry.count({ where: { referrerId: referrerStats.userId } });
+    const rewardPart = await calcReferralReward(priorCount + 1);
     const entry = await prisma.referralEntry.create({
       data: {
         referrerId: referrerStats.userId,
         referredId: userId,
-        rewardPart: REFERRAL_REWARD_PART,
+        rewardPart,
         source: referralCode
       }
     });
-    return reply.code(201).send({ ok: true, entry, reward: `${REFERRAL_REWARD_PART} PART \xF6d\xFCl beklemede` });
+    return reply.code(201).send({ ok: true, entry, reward: `${rewardPart} PART \xF6d\xFCl beklemede` });
   });
   app.post("/referral/claim", async (req, reply) => {
     const userId = requireAuth(req, reply);
@@ -102951,16 +102975,23 @@ async function registerReferralRoutes(app) {
     return { leaderboard };
   });
   app.get("/referral/stats", async () => {
-    const [total, paid, totalPart] = await Promise.all([
+    const [total, paid, totalPart, tier1] = await Promise.all([
       prisma.referralEntry.count(),
       prisma.referralEntry.count({ where: { paid: true } }),
-      prisma.referralEntry.aggregate({ _sum: { rewardPart: true }, where: { paid: true } })
+      prisma.referralEntry.aggregate({ _sum: { rewardPart: true }, where: { paid: true } }),
+      calcReferralReward(1)
     ]);
     return {
       totalReferrals: total,
       paidReferrals: paid,
       totalPartDistributed: Number(totalPart._sum.rewardPart ?? 0),
-      rewardPerReferral: REFERRAL_REWARD_PART
+      rewardPerReferral: tier1,
+      tiers: [
+        { range: "1-10", usdTarget: 0.05 },
+        { range: "11-20", usdTarget: 0.05 },
+        { range: "21-40", usdTarget: 0.1 },
+        { range: "41+", usdTarget: 0.2 }
+      ]
     };
   });
 }

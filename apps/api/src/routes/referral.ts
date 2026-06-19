@@ -1,8 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../db/client";
 import { requireAuth } from "./auth";
-
-const REFERRAL_REWARD_PART = 50; // her başarılı referral için
+import { calcReferralReward } from "../services/referral-rewards";
 
 export async function registerReferralRoutes(app: FastifyInstance) {
 
@@ -60,16 +59,19 @@ export async function registerReferralRoutes(app: FastifyInstance) {
     if (!referrerStats) return reply.code(404).send({ error: "Geçersiz referral kodu" });
     if (referrerStats.userId === userId) return reply.code(400).send({ error: "Kendi kodunuzu kullanamazsınız" });
 
+    const priorCount = await prisma.referralEntry.count({ where: { referrerId: referrerStats.userId } });
+    const rewardPart = await calcReferralReward(priorCount + 1);
+
     const entry = await prisma.referralEntry.create({
       data: {
         referrerId: referrerStats.userId,
         referredId: userId,
-        rewardPart: REFERRAL_REWARD_PART,
+        rewardPart,
         source: referralCode,
       },
     });
 
-    return reply.code(201).send({ ok: true, entry, reward: `${REFERRAL_REWARD_PART} PART ödül beklemede` });
+    return reply.code(201).send({ ok: true, entry, reward: `${rewardPart} PART ödül beklemede` });
   });
 
   /* ── Claim pending referral rewards ───────────────────────── */
@@ -130,16 +132,23 @@ export async function registerReferralRoutes(app: FastifyInstance) {
 
   /* ── Global referral stats ─────────────────────────────────── */
   app.get("/referral/stats", async () => {
-    const [total, paid, totalPart] = await Promise.all([
+    const [total, paid, totalPart, tier1] = await Promise.all([
       prisma.referralEntry.count(),
       prisma.referralEntry.count({ where: { paid: true } }),
       prisma.referralEntry.aggregate({ _sum: { rewardPart: true }, where: { paid: true } }),
+      calcReferralReward(1),
     ]);
     return {
       totalReferrals: total,
       paidReferrals: paid,
       totalPartDistributed: Number(totalPart._sum.rewardPart ?? 0),
-      rewardPerReferral: REFERRAL_REWARD_PART,
+      rewardPerReferral: tier1,
+      tiers: [
+        { range: "1-10",  usdTarget: 0.05 },
+        { range: "11-20", usdTarget: 0.05 },
+        { range: "21-40", usdTarget: 0.10 },
+        { range: "41+",   usdTarget: 0.20 },
+      ],
     };
   });
 }

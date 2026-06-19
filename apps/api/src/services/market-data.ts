@@ -5,7 +5,7 @@
  * CoinGecko: BNB fiyat, kripto piyasa verileri
  */
 
-const TTL_MS = 60 * 1000; // 1 dakika cache (rate limit koruması)
+const TTL_MS = 5 * 60 * 1000; // 5 dakika cache (CoinGecko free tier rate limit koruması)
 const cache = new Map<string, { at: number; data: any }>();
 
 async function cached<T>(key: string, fn: () => Promise<T>): Promise<T> {
