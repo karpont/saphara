@@ -314,12 +314,25 @@ async function fetchMusicNews(): Promise<NewsItem[]> {
 
 /* ── Ana getirici ─────────────────────────────────────────────── */
 
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
+
 export async function getNews(category = "general", lang = "tr"): Promise<NewsItem[]> {
   const cacheKey = `${category}:${lang}`;
   const hit = cache.get(cacheKey);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.data;
   if (!apiLimiter.allow("news")) return hit?.data ?? [];
 
+  const items = await withTimeout(fetchByCategory(category, lang), 12000, hit?.data ?? []);
+  cache.set(cacheKey, { at: Date.now(), data: items });
+  return items;
+}
+
+async function fetchByCategory(category: string, lang: string): Promise<NewsItem[]> {
   let items: NewsItem[];
 
   switch (category) {
@@ -363,15 +376,20 @@ export async function getNews(category = "general", lang = "tr"): Promise<NewsIt
       break;
     }
     default: {
-      const [g, n, hn] = await Promise.allSettled([fetchGNews(category, lang), fetchNewsData(category, lang), fetchHackerNews()]);
-      const primary = sortByDate([
-        ...(g.status === "fulfilled" ? g.value : []),
-        ...(n.status === "fulfilled" ? n.value : []),
+      const [g, n, hn, rss] = await Promise.allSettled([
+        fetchGNews(category, lang),
+        fetchNewsData(category, lang),
+        fetchHackerNews(),
+        fetchCryptoRss(),
       ]);
-      items = dedupe(primary.length > 0 ? primary : (hn.status === "fulfilled" ? hn.value : []));
+      items = dedupe(sortByDate([
+        ...(g.status   === "fulfilled" ? g.value   : []),
+        ...(n.status   === "fulfilled" ? n.value   : []),
+        ...(hn.status  === "fulfilled" ? hn.value  : []),
+        ...(rss.status === "fulfilled" ? rss.value : []),
+      ]));
     }
   }
 
-  cache.set(cacheKey, { at: Date.now(), data: items });
   return items;
 }

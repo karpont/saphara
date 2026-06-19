@@ -99023,11 +99023,22 @@ async function fetchMusicNews() {
     return [];
   }
 }
+function withTimeout2(promise, ms, fallback2) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => setTimeout(() => resolve(fallback2), ms))
+  ]);
+}
 async function getNews(category = "general", lang = "tr") {
   const cacheKey2 = `${category}:${lang}`;
   const hit = cache5.get(cacheKey2);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.data;
   if (!apiLimiter.allow("news")) return hit?.data ?? [];
+  const items = await withTimeout2(fetchByCategory(category, lang), 12e3, hit?.data ?? []);
+  cache5.set(cacheKey2, { at: Date.now(), data: items });
+  return items;
+}
+async function fetchByCategory(category, lang) {
   let items;
   switch (category) {
     case "crypto": {
@@ -99070,15 +99081,20 @@ async function getNews(category = "general", lang = "tr") {
       break;
     }
     default: {
-      const [g5, n2, hn] = await Promise.allSettled([fetchGNews(category, lang), fetchNewsData(category, lang), fetchHackerNews()]);
-      const primary = sortByDate([
-        ...g5.status === "fulfilled" ? g5.value : [],
-        ...n2.status === "fulfilled" ? n2.value : []
+      const [g5, n2, hn, rss] = await Promise.allSettled([
+        fetchGNews(category, lang),
+        fetchNewsData(category, lang),
+        fetchHackerNews(),
+        fetchCryptoRss()
       ]);
-      items = dedupe(primary.length > 0 ? primary : hn.status === "fulfilled" ? hn.value : []);
+      items = dedupe(sortByDate([
+        ...g5.status === "fulfilled" ? g5.value : [],
+        ...n2.status === "fulfilled" ? n2.value : [],
+        ...hn.status === "fulfilled" ? hn.value : [],
+        ...rss.status === "fulfilled" ? rss.value : []
+      ]));
     }
   }
-  cache5.set(cacheKey2, { at: Date.now(), data: items });
   return items;
 }
 
@@ -100758,15 +100774,28 @@ async function getBnbData() {
     }
   });
 }
+var TOP_CRYPTO_FALLBACK = [
+  { symbol: "BTC", name: "Bitcoin", priceUsd: 96e3, change24h: 0, volume24h: 0, marketCap: 0 },
+  { symbol: "ETH", name: "Ethereum", priceUsd: 3400, change24h: 0, volume24h: 0, marketCap: 0 },
+  { symbol: "BNB", name: "BNB", priceUsd: 620, change24h: 0, volume24h: 0, marketCap: 0 },
+  { symbol: "SOL", name: "Solana", priceUsd: 190, change24h: 0, volume24h: 0, marketCap: 0 },
+  { symbol: "XRP", name: "XRP", priceUsd: 2.2, change24h: 0, volume24h: 0, marketCap: 0 },
+  { symbol: "ADA", name: "Cardano", priceUsd: 0.9, change24h: 0, volume24h: 0, marketCap: 0 },
+  { symbol: "DOGE", name: "Dogecoin", priceUsd: 0.3, change24h: 0, volume24h: 0, marketCap: 0 },
+  { symbol: "TON", name: "Toncoin", priceUsd: 5.5, change24h: 0, volume24h: 0, marketCap: 0 },
+  { symbol: "AVAX", name: "Avalanche", priceUsd: 35, change24h: 0, volume24h: 0, marketCap: 0 },
+  { symbol: "LINK", name: "Chainlink", priceUsd: 22, change24h: 0, volume24h: 0, marketCap: 0 }
+];
 async function getTopCrypto() {
   return cached("top_crypto", async () => {
     try {
       const res = await fetch(
         "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1&sparkline=false",
-        { headers: { "Accept": "application/json" } }
+        { headers: { "Accept": "application/json" }, signal: AbortSignal.timeout(8e3) }
       );
       if (!res.ok) throw new Error("CoinGecko error");
       const data2 = await res.json();
+      if (!Array.isArray(data2) || data2.length === 0) throw new Error("CoinGecko empty");
       return data2.map((c5) => ({
         symbol: c5.symbol.toUpperCase(),
         name: c5.name,
@@ -100777,7 +100806,7 @@ async function getTopCrypto() {
         image: c5.image
       }));
     } catch {
-      return [];
+      return TOP_CRYPTO_FALLBACK;
     }
   });
 }

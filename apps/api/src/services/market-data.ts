@@ -130,15 +130,29 @@ export async function getBnbData(): Promise<BnbData> {
 }
 
 /** Top 10 kripto fiyatları — ücretsiz CoinGecko */
+const TOP_CRYPTO_FALLBACK: CryptoTicker[] = [
+  { symbol: "BTC",  name: "Bitcoin",      priceUsd: 96000, change24h: 0, volume24h: 0, marketCap: 0 },
+  { symbol: "ETH",  name: "Ethereum",     priceUsd: 3400,  change24h: 0, volume24h: 0, marketCap: 0 },
+  { symbol: "BNB",  name: "BNB",          priceUsd: 620,   change24h: 0, volume24h: 0, marketCap: 0 },
+  { symbol: "SOL",  name: "Solana",       priceUsd: 190,   change24h: 0, volume24h: 0, marketCap: 0 },
+  { symbol: "XRP",  name: "XRP",          priceUsd: 2.2,   change24h: 0, volume24h: 0, marketCap: 0 },
+  { symbol: "ADA",  name: "Cardano",      priceUsd: 0.9,   change24h: 0, volume24h: 0, marketCap: 0 },
+  { symbol: "DOGE", name: "Dogecoin",     priceUsd: 0.3,   change24h: 0, volume24h: 0, marketCap: 0 },
+  { symbol: "TON",  name: "Toncoin",      priceUsd: 5.5,   change24h: 0, volume24h: 0, marketCap: 0 },
+  { symbol: "AVAX", name: "Avalanche",    priceUsd: 35,    change24h: 0, volume24h: 0, marketCap: 0 },
+  { symbol: "LINK", name: "Chainlink",    priceUsd: 22,    change24h: 0, volume24h: 0, marketCap: 0 },
+];
+
 export async function getTopCrypto(): Promise<CryptoTicker[]> {
   return cached<CryptoTicker[]>("top_crypto", async () => {
     try {
       const res = await fetch(
         "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1&sparkline=false",
-        { headers: { "Accept": "application/json" } }
+        { headers: { "Accept": "application/json" }, signal: AbortSignal.timeout(8000) }
       );
       if (!res.ok) throw new Error("CoinGecko error");
       const data = (await res.json()) as any[];
+      if (!Array.isArray(data) || data.length === 0) throw new Error("CoinGecko empty");
       return data.map((c) => ({
         symbol: c.symbol.toUpperCase(),
         name: c.name,
@@ -149,7 +163,7 @@ export async function getTopCrypto(): Promise<CryptoTicker[]> {
         image: c.image,
       }));
     } catch {
-      return [];
+      return TOP_CRYPTO_FALLBACK;
     }
   });
 }
