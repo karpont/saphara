@@ -5,7 +5,7 @@
  * CoinGecko: BNB fiyat, kripto piyasa verileri
  */
 
-const TTL_MS = 5 * 60 * 1000; // 5 dakika cache (CoinGecko free tier rate limit koruması)
+const TTL_MS = 60 * 1000; // 1 dakika cache (Binance birincil kaynak, yüksek limit destekliyor)
 const cache = new Map<string, { at: number; data: any }>();
 
 async function cached<T>(key: string, fn: () => Promise<T>): Promise<T> {
@@ -110,15 +110,52 @@ export async function getPartMarketData(): Promise<PartMarketData> {
   });
 }
 
-/** CoinGecko'dan BNB + top kripto verileri — ücretsiz, API anahtarı yok */
+const COIN_META: Record<string, { name: string; image: string }> = {
+  BTC:  { name: "Bitcoin",   image: "https://assets.coingecko.com/coins/images/1/small/bitcoin.png" },
+  ETH:  { name: "Ethereum",  image: "https://assets.coingecko.com/coins/images/279/small/ethereum.png" },
+  BNB:  { name: "BNB",       image: "https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png" },
+  SOL:  { name: "Solana",    image: "https://assets.coingecko.com/coins/images/4128/small/solana.png" },
+  XRP:  { name: "XRP",       image: "https://assets.coingecko.com/coins/images/44/small/xrp-symbol-white-128.png" },
+  ADA:  { name: "Cardano",   image: "https://assets.coingecko.com/coins/images/975/small/cardano.png" },
+  DOGE: { name: "Dogecoin",  image: "https://assets.coingecko.com/coins/images/5/small/dogecoin.png" },
+  TON:  { name: "Toncoin",   image: "https://assets.coingecko.com/coins/images/17980/small/ton_symbol.png" },
+  AVAX: { name: "Avalanche", image: "https://assets.coingecko.com/coins/images/12559/small/Avalanche_Circle_RedWhite_Trans.png" },
+  LINK: { name: "Chainlink", image: "https://assets.coingecko.com/coins/images/877/small/chainlink-new-logo.png" },
+};
+const BINANCE_SYMBOLS = ["BTCUSDT","ETHUSDT","BNBUSDT","SOLUSDT","XRPUSDT","ADAUSDT","DOGEUSDT","TONUSDT","AVAXUSDT","LINKUSDT"];
+
+/** Binance 24hr ticker — ücretsiz, API anahtarı yok, çok yüksek rate limit (CoinGecko 429 sorununu çözer) */
+async function fetchBinance24hr(symbols: string[]): Promise<any[]> {
+  const res = await fetch(
+    `https://api.binance.com/api/v3/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(symbols))}`,
+    { headers: { "Accept": "application/json", "User-Agent": "Mozilla/5.0 (compatible; Saphara/1.0)" }, signal: AbortSignal.timeout(8000) }
+  );
+  if (!res.ok) { console.error("Binance HTTP", res.status, await res.text().catch(() => "")); throw new Error("Binance error"); }
+  const data = await res.json();
+  if (!Array.isArray(data) || data.length === 0) throw new Error("Binance empty");
+  return data;
+}
+
+/** BNB fiyatı — Binance birincil, CoinGecko yedek */
 export async function getBnbData(): Promise<BnbData> {
   return cached("bnb_price", async () => {
+    try {
+      const [t] = await fetchBinance24hr(["BNBUSDT"]);
+      return {
+        priceUsd: Number(t.lastPrice ?? 0),
+        priceChange24h: Number(t.priceChangePercent ?? 0),
+        volume24h: Number(t.quoteVolume ?? 0),
+        marketCap: 0,
+      };
+    } catch (e) {
+      console.error("Binance BNB fetch failed:", (e as Error).message);
+    }
     try {
       const res = await fetch(
         "https://api.coingecko.com/api/v3/simple/price?ids=binancecoin&vs_currencies=usd&include_24hr_vol=true&include_24hr_change=true&include_market_cap=true",
         { headers: { "Accept": "application/json", "User-Agent": "Mozilla/5.0 (compatible; Saphara/1.0)" }, signal: AbortSignal.timeout(8000) }
       );
-      if (!res.ok) { console.error("CoinGecko BNB HTTP", res.status, await res.text().catch(() => "")); throw new Error("CoinGecko error"); }
+      if (!res.ok) throw new Error("CoinGecko error");
       const d: any = await res.json();
       const bnb = d.binancecoin;
       return {
@@ -134,7 +171,7 @@ export async function getBnbData(): Promise<BnbData> {
   });
 }
 
-/** Top 10 kripto fiyatları — ücretsiz CoinGecko */
+/** Top 10 kripto fiyatları — son çare statik fallback (canlı kaynaklar başarısız olursa) */
 const TOP_CRYPTO_FALLBACK: CryptoTicker[] = [
   { symbol: "BTC",  name: "Bitcoin",      priceUsd: 96000, change24h: 0, volume24h: 0, marketCap: 0 },
   { symbol: "ETH",  name: "Ethereum",     priceUsd: 3400,  change24h: 0, volume24h: 0, marketCap: 0 },
@@ -148,8 +185,27 @@ const TOP_CRYPTO_FALLBACK: CryptoTicker[] = [
   { symbol: "LINK", name: "Chainlink",    priceUsd: 22,    change24h: 0, volume24h: 0, marketCap: 0 },
 ];
 
+/** Top 10 kripto — Binance birincil (yüksek limit), CoinGecko yedek, statik liste son çare */
 export async function getTopCrypto(): Promise<CryptoTicker[]> {
   return cached<CryptoTicker[]>("top_crypto", async () => {
+    try {
+      const tickers = await fetchBinance24hr(BINANCE_SYMBOLS);
+      return tickers.map((t: any) => {
+        const symbol = String(t.symbol).replace(/USDT$/, "");
+        const meta = COIN_META[symbol] ?? { name: symbol, image: undefined };
+        return {
+          symbol,
+          name: meta.name,
+          priceUsd: Number(t.lastPrice ?? 0),
+          change24h: Number(t.priceChangePercent ?? 0),
+          volume24h: Number(t.quoteVolume ?? 0),
+          marketCap: 0,
+          image: meta.image,
+        };
+      });
+    } catch (e) {
+      console.error("Binance top crypto fetch failed:", (e as Error).message);
+    }
     try {
       const res = await fetch(
         "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1&sparkline=false",

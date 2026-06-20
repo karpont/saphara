@@ -100683,7 +100683,7 @@ function computeBadges(user) {
 }
 
 // apps/api/src/services/market-data.ts
-var TTL_MS2 = 5 * 60 * 1e3;
+var TTL_MS2 = 60 * 1e3;
 var cache6 = /* @__PURE__ */ new Map();
 async function cached(key, fn) {
   const hit = cache6.get(key);
@@ -100759,17 +100759,51 @@ async function getPartMarketData() {
     };
   });
 }
+var COIN_META = {
+  BTC: { name: "Bitcoin", image: "https://assets.coingecko.com/coins/images/1/small/bitcoin.png" },
+  ETH: { name: "Ethereum", image: "https://assets.coingecko.com/coins/images/279/small/ethereum.png" },
+  BNB: { name: "BNB", image: "https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png" },
+  SOL: { name: "Solana", image: "https://assets.coingecko.com/coins/images/4128/small/solana.png" },
+  XRP: { name: "XRP", image: "https://assets.coingecko.com/coins/images/44/small/xrp-symbol-white-128.png" },
+  ADA: { name: "Cardano", image: "https://assets.coingecko.com/coins/images/975/small/cardano.png" },
+  DOGE: { name: "Dogecoin", image: "https://assets.coingecko.com/coins/images/5/small/dogecoin.png" },
+  TON: { name: "Toncoin", image: "https://assets.coingecko.com/coins/images/17980/small/ton_symbol.png" },
+  AVAX: { name: "Avalanche", image: "https://assets.coingecko.com/coins/images/12559/small/Avalanche_Circle_RedWhite_Trans.png" },
+  LINK: { name: "Chainlink", image: "https://assets.coingecko.com/coins/images/877/small/chainlink-new-logo.png" }
+};
+var BINANCE_SYMBOLS = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "TONUSDT", "AVAXUSDT", "LINKUSDT"];
+async function fetchBinance24hr(symbols) {
+  const res = await fetch(
+    `https://api.binance.com/api/v3/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(symbols))}`,
+    { headers: { "Accept": "application/json", "User-Agent": "Mozilla/5.0 (compatible; Saphara/1.0)" }, signal: AbortSignal.timeout(8e3) }
+  );
+  if (!res.ok) {
+    console.error("Binance HTTP", res.status, await res.text().catch(() => ""));
+    throw new Error("Binance error");
+  }
+  const data2 = await res.json();
+  if (!Array.isArray(data2) || data2.length === 0) throw new Error("Binance empty");
+  return data2;
+}
 async function getBnbData() {
   return cached("bnb_price", async () => {
+    try {
+      const [t] = await fetchBinance24hr(["BNBUSDT"]);
+      return {
+        priceUsd: Number(t.lastPrice ?? 0),
+        priceChange24h: Number(t.priceChangePercent ?? 0),
+        volume24h: Number(t.quoteVolume ?? 0),
+        marketCap: 0
+      };
+    } catch (e5) {
+      console.error("Binance BNB fetch failed:", e5.message);
+    }
     try {
       const res = await fetch(
         "https://api.coingecko.com/api/v3/simple/price?ids=binancecoin&vs_currencies=usd&include_24hr_vol=true&include_24hr_change=true&include_market_cap=true",
         { headers: { "Accept": "application/json", "User-Agent": "Mozilla/5.0 (compatible; Saphara/1.0)" }, signal: AbortSignal.timeout(8e3) }
       );
-      if (!res.ok) {
-        console.error("CoinGecko BNB HTTP", res.status, await res.text().catch(() => ""));
-        throw new Error("CoinGecko error");
-      }
+      if (!res.ok) throw new Error("CoinGecko error");
       const d5 = await res.json();
       const bnb = d5.binancecoin;
       return {
@@ -100798,6 +100832,24 @@ var TOP_CRYPTO_FALLBACK = [
 ];
 async function getTopCrypto() {
   return cached("top_crypto", async () => {
+    try {
+      const tickers = await fetchBinance24hr(BINANCE_SYMBOLS);
+      return tickers.map((t) => {
+        const symbol = String(t.symbol).replace(/USDT$/, "");
+        const meta = COIN_META[symbol] ?? { name: symbol, image: void 0 };
+        return {
+          symbol,
+          name: meta.name,
+          priceUsd: Number(t.lastPrice ?? 0),
+          change24h: Number(t.priceChangePercent ?? 0),
+          volume24h: Number(t.quoteVolume ?? 0),
+          marketCap: 0,
+          image: meta.image
+        };
+      });
+    } catch (e5) {
+      console.error("Binance top crypto fetch failed:", e5.message);
+    }
     try {
       const res = await fetch(
         "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1&sparkline=false",
