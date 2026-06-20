@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   Home, Compass, Clapperboard, ShoppingBag, Wallet,
   MessageCircle, Bell, User, Settings, Megaphone, Scissors,
@@ -9,58 +10,59 @@ import {
   Gift, Image,
 } from "lucide-react";
 import { useIsOwner, useNotifications } from "../hooks/useApi";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 
-/* Grouped nav sections */
+/* Grouped nav sections — labelKey'ler messages/{locale}.json "nav" namespace'inden çözülür */
 const SECTIONS = [
   {
-    title: null,
+    titleKey: null,
     items: [
-      { icon: Home,            label: "Ana Sayfa",      href: "/"              },
-      { icon: Search,          label: "Ara",             href: "/search"        },
-      { icon: Compass,         label: "Keşfet",          href: "/explore"       },
-      { icon: LayoutDashboard, label: "Dashboard",       href: "/dashboard"     },
+      { icon: Home,            labelKey: "home",      href: "/"              },
+      { icon: Search,          labelKey: "search",    href: "/search"        },
+      { icon: Compass,         labelKey: "explore",   href: "/explore"       },
+      { icon: LayoutDashboard, labelKey: "dashboard", href: "/dashboard"     },
     ],
   },
   {
-    title: "İçerik",
+    titleKey: "sectionContent",
     items: [
-      { icon: Clapperboard, label: "Reels",     href: "/reels"   },
-      { icon: Scissors,     label: "Studio",    href: "/studio"  },
-      { icon: Newspaper,    label: "Haberler",  href: "/news"    },
-      { icon: BookOpen,     label: "Blog",      href: "/blog"    },
-      { icon: Bookmark,     label: "Kaydedilenler", href: "/bookmarks" },
+      { icon: Clapperboard, labelKey: "reels",     href: "/reels"   },
+      { icon: Scissors,     labelKey: "studio",    href: "/studio"  },
+      { icon: Newspaper,    labelKey: "news",      href: "/news"    },
+      { icon: BookOpen,     labelKey: "blog",      href: "/blog"    },
+      { icon: Bookmark,     labelKey: "bookmarks", href: "/bookmarks" },
     ],
   },
   {
-    title: "Web3",
+    titleKey: "sectionWeb3",
     items: [
-      { icon: Rocket,      label: "Launchpad",  href: "/launchpad" },
-      { icon: ShoppingBag, label: "Market",     href: "/market"    },
-      { icon: Image,       label: "NFT",        href: "/nft"       },
-      { icon: Coins,       label: "PART Coin",  href: "/part"      },
-      { icon: Flame,       label: "Staking",    href: "/staking"   },
-      { icon: Vote,        label: "DAO",        href: "/dao"       },
-      { icon: Wallet,      label: "Cüzdan",     href: "/wallet"    },
+      { icon: Rocket,      labelKey: "launchpad", href: "/launchpad" },
+      { icon: ShoppingBag, labelKey: "market",    href: "/market"    },
+      { icon: Image,       labelKey: "nft",       href: "/nft"       },
+      { icon: Coins,       labelKey: "partCoin",  href: "/part"      },
+      { icon: Flame,       labelKey: "staking",   href: "/staking"   },
+      { icon: Vote,        labelKey: "dao",       href: "/dao"       },
+      { icon: Wallet,      labelKey: "wallet",    href: "/wallet"    },
     ],
   },
   {
-    title: "Sosyal",
+    titleKey: "sectionSocial",
     items: [
-      { icon: MessageCircle, label: "Mesajlar",       href: "/messages"      },
-      { icon: Bell,          label: "Bildirimler",    href: "/notifications" },
-      { icon: Users,         label: "Topluluklar",    href: "/communities"   },
-      { icon: Trophy,        label: "Seviyeler & XP", href: "/levels"        },
-      { icon: Gift,          label: "Referral",       href: "/referral"      },
+      { icon: MessageCircle, labelKey: "messages",      href: "/messages"      },
+      { icon: Bell,          labelKey: "notifications", href: "/notifications" },
+      { icon: Users,         labelKey: "communities",   href: "/communities"   },
+      { icon: Trophy,        labelKey: "levels",        href: "/levels"        },
+      { icon: Gift,          labelKey: "referral",      href: "/referral"      },
     ],
   },
   {
-    title: "Hesap",
+    titleKey: "sectionAccount",
     items: [
-      { icon: User,      label: "Profil",         href: "/profile"   },
-      { icon: Megaphone, label: "Reklam Ver",     href: "/advertise" },
-      { icon: Shield,    label: "Gizlilik / KVKK", href: "/privacy"  },
-      { icon: FileText,  label: "Koşullar",       href: "/terms"     },
-      { icon: Settings,  label: "Ayarlar",        href: "/settings"  },
+      { icon: User,      labelKey: "profile",   href: "/profile"   },
+      { icon: Megaphone, labelKey: "advertise", href: "/advertise" },
+      { icon: Shield,    labelKey: "privacy",   href: "/privacy"  },
+      { icon: FileText,  labelKey: "terms",     href: "/terms"     },
+      { icon: Settings,  labelKey: "settings",  href: "/settings"  },
     ],
   },
 ];
@@ -70,23 +72,24 @@ export function Sidebar() {
   const owner = useIsOwner();
   const notifs = useNotifications();
   const unread = notifs.data?.unread ?? 0;
+  const t = useTranslations("nav");
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   return (
-    <nav className="sidebar" aria-label="Ana menü">
+    <nav className="sidebar" aria-label="Main menu">
       <div className="brand">Saphara</div>
       <ul>
         {SECTIONS.map((section) => (
-          <li key={section.title ?? "top"} className="nav-section">
-            {section.title && <span className="nav-section-label">{section.title}</span>}
+          <li key={section.titleKey ?? "top"} className="nav-section">
+            {section.titleKey && <span className="nav-section-label">{t(section.titleKey)}</span>}
             <ul className="nav-section-items">
-              {section.items.map(({ icon: Icon, label, href }) => (
+              {section.items.map(({ icon: Icon, labelKey, href }) => (
                 <li key={href}>
                   <a href={href} className={isActive(href) ? "active" : ""}>
                     <Icon size={20} strokeWidth={1.75} />
-                    <span>{label}</span>
+                    <span>{t(labelKey)}</span>
                     {href === "/notifications" && unread > 0 && (
                       <span className="nav-badge">{unread > 9 ? "9+" : unread}</span>
                     )}
@@ -100,12 +103,13 @@ export function Sidebar() {
         {owner.data?.isOwner && (
           <li>
             <a href="/owner" className={`owner-link${isActive("/owner") ? " active" : ""}`}>
-              <Bot size={20} strokeWidth={1.75} /><span>Owner Panel</span>
+              <Bot size={20} strokeWidth={1.75} /><span>{t("ownerPanel")}</span>
             </a>
           </li>
         )}
       </ul>
-      <a className="compose" href="/create">Gönderi Paylaş</a>
+      <a className="compose" href="/create">{t("compose")}</a>
+      <LanguageSwitcher />
 
       <style>{`
         .nav-section { list-style: none; margin-bottom: 4px; }

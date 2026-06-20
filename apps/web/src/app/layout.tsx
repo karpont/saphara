@@ -1,5 +1,7 @@
 import "./globals.css";
 import type { ReactNode } from "react";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
 import { Providers } from "./providers";
 import { Sidebar } from "../components/Sidebar";
 import { ThemeProvider } from "../components/ThemeProvider";
@@ -32,28 +34,32 @@ export const viewport = {
   themeColor: "#f0b429",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const locale = await getLocale();
+  const messages = await getMessages();
   return (
-    <html lang="en">
+    <html lang={locale}>
       <body>
-        <Providers>
-          <ThemeProvider>
-            <div className="shell">
-              <Sidebar />
-              <main className="main">
-                <CryptoTicker />
-                {children}
-              </main>
-              <aside className="rightrail">
-                <RightRail />
-              </aside>
-            </div>
-            <LegalFooter />
-            <CookieBanner />
-            <MobileNav />
-            <OnboardingModal />
-          </ThemeProvider>
-        </Providers>
+        <NextIntlClientProvider messages={messages}>
+          <Providers>
+            <ThemeProvider>
+              <div className="shell">
+                <Sidebar />
+                <main className="main">
+                  <CryptoTicker />
+                  {children}
+                </main>
+                <aside className="rightrail">
+                  <RightRail />
+                </aside>
+              </div>
+              <LegalFooter />
+              <CookieBanner />
+              <MobileNav />
+              <OnboardingModal />
+            </ThemeProvider>
+          </Providers>
+        </NextIntlClientProvider>
       </body>
     </html>
   );
