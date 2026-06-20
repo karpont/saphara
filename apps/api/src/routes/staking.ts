@@ -1,6 +1,10 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../db/client";
 import { requireAuth } from "./auth";
+import { getPartMarketData } from "../services/market-data";
+
+const MIN_PRICE_FLOOR = 0.0001;
+const FLEXIBLE_MIN_USD = 5; // Esnek havuz giriş eşiği — USD değeri sabit, PART karşılığı fiyata göre değişir
 
 /* ─────────────────── Havuz Tanımları ─────────────────────────── */
 
@@ -107,9 +111,15 @@ export async function registerStakingRoutes(app: FastifyInstance) {
   /* GET /staking/pools — havuz bilgisi */
   app.get("/staking/pools", async () => {
     const totalAllocPoints = POOLS.reduce((s, p) => s + p.allocPoint, 0);
+    const { priceUsd } = await getPartMarketData();
+    const price = priceUsd > MIN_PRICE_FLOOR ? priceUsd : MIN_PRICE_FLOOR;
+    const flexibleMinPart = Math.round((FLEXIBLE_MIN_USD / price) * 100) / 100;
+
     return {
       pools: POOLS.map(p => ({
         ...p,
+        min: p.id === "flexible" ? flexibleMinPart : p.min,
+        minUsd: p.id === "flexible" ? FLEXIBLE_MIN_USD : Math.round(p.min * price * 100) / 100,
         poolWeight: ((p.allocPoint / totalAllocPoints) * 100).toFixed(1) + "%",
         exampleReward30d:  estimatedReward(1000, p.apyNum, 30),
         exampleReward90d:  estimatedReward(1000, p.apyNum, 90),

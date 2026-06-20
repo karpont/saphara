@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Zap, TrendingUp, Lock, Unlock, Shield, Info,
   ChevronDown, ChevronUp, RefreshCw, AlertTriangle, CheckCircle2,
@@ -129,6 +129,8 @@ export default function StakingPage() {
   const [compound, setCompound] = useState(true);
   const [faqOpen, setFaqOpen]   = useState<number | null>(null);
   const [tab, setTab]           = useState<"stake" | "my">("stake");
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => { setNow(Date.now()); }, []);
 
   const stats        = useStakingStats();
   const partMarket   = usePartMarketData();
@@ -336,12 +338,12 @@ export default function StakingPage() {
                   <p className="stk-result-note">
                     <Info size={11} /> Tahmini değer — gerçek APY piyasa koşullarına göre değişir.
                   </p>
-                  {pool.lockDays > 0 && (
+                  {pool.lockDays > 0 && now && (
                     <div className="stk-lock-info">
                       <Timer size={12} />
                       <span>
                         Kilit bitiş: <strong>
-                          {new Date(Date.now() + pool.lockDays * 86400000).toLocaleDateString("tr-TR")}
+                          {new Date(now + pool.lockDays * 86400000).toLocaleDateString("tr-TR")}
                         </strong>
                         {pool.earlyExit > 0 && ` · Erken çekim cezası: %${pool.earlyExit}`}
                       </span>

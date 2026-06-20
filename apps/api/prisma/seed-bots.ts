@@ -175,11 +175,11 @@ function postImageUrl(seed: string | number, w = 800, h = 500): string {
 
 /* DiceBear: Üretilen avatarlar, gerçek kişi fotoğrafı yok, MIT lisanslı */
 const DICEBEAR_STYLES: Record<string, string> = {
-  crypto:  "bottts",        // robot avatarları — kripto için uygun
-  tech:    "bottts-neutral",// nötr robot
+  crypto:  "avataaars",     // sevimli insan karakteri
+  tech:    "micah",         // insan portresi
   art:     "lorelei",       // çizgi sanatçı karakteri
-  finance: "notionists",    // profesyonel minimalist
-  social:  "adventurer",    // karikatür macera karakteri
+  finance: "notionists",    // profesyonel minimalist insan
+  social:  "personas",      // düz illüstrasyon insan
 };
 
 function avatarUrl(handle: string, cat: string): string {

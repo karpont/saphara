@@ -1,4 +1,4 @@
-const STYLES = ["adventurer", "bottts", "lorelei", "bottts-neutral"] as const;
+const STYLES = ["avataaars", "personas", "micah", "lorelei", "notionists"] as const;
 const BG = ["b6e3f4", "ffdfbf", "c0aede", "d1d4f9", "ffd5dc", "b6f4b6"] as const;
 
 export function getAvatarUrl(handle: string, avatarUrl?: string | null): string {

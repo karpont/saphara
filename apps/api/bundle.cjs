@@ -103049,6 +103049,8 @@ async function registerReferralRoutes(app) {
 }
 
 // apps/api/src/routes/staking.ts
+var MIN_PRICE_FLOOR2 = 1e-4;
+var FLEXIBLE_MIN_USD = 5;
 var POOLS = [
   {
     id: "flexible",
@@ -103166,9 +103168,14 @@ async function saveNotifyList(list2) {
 async function registerStakingRoutes(app) {
   app.get("/staking/pools", async () => {
     const totalAllocPoints = POOLS.reduce((s, p2) => s + p2.allocPoint, 0);
+    const { priceUsd } = await getPartMarketData();
+    const price = priceUsd > MIN_PRICE_FLOOR2 ? priceUsd : MIN_PRICE_FLOOR2;
+    const flexibleMinPart = Math.round(FLEXIBLE_MIN_USD / price * 100) / 100;
     return {
       pools: POOLS.map((p2) => ({
         ...p2,
+        min: p2.id === "flexible" ? flexibleMinPart : p2.min,
+        minUsd: p2.id === "flexible" ? FLEXIBLE_MIN_USD : Math.round(p2.min * price * 100) / 100,
         poolWeight: (p2.allocPoint / totalAllocPoints * 100).toFixed(1) + "%",
         exampleReward30d: estimatedReward(1e3, p2.apyNum, 30),
         exampleReward90d: estimatedReward(1e3, p2.apyNum, 90),
