@@ -98985,24 +98985,26 @@ async function fetchHackerNews() {
     return [];
   }
 }
+var SPORTS_LEAGUE_IDS = [4328, 4335, 4480, 4387, 4346, 4424];
 async function fetchSportsNews() {
-  try {
-    const res = await fetch("https://www.thesportsdb.com/api/v1/json/3/eventspastleague.php?id=4328", { signal: AbortSignal.timeout(8e3) });
-    if (!res.ok) return [];
-    const json = await res.json();
-    return (json.events ?? []).slice(0, 10).map((e5, i5) => ({
-      id: `sports_${i5}`,
-      title: `${e5.strHomeTeam} ${e5.intHomeScore ?? "?"} - ${e5.intAwayScore ?? "?"} ${e5.strAwayTeam}`,
-      description: `${e5.strLeague} \xB7 ${e5.strEvent}`,
-      url: e5.strVideo ?? `https://www.thesportsdb.com/event/${e5.idEvent}`,
-      imageUrl: e5.strThumb ?? e5.strBanner,
-      source: e5.strLeague ?? "TheSportsDB",
-      publishedAt: e5.dateEvent ? `${e5.dateEvent}T${e5.strTime ?? "12:00:00"}` : (/* @__PURE__ */ new Date()).toISOString(),
-      category: "sports"
-    }));
-  } catch {
-    return [];
-  }
+  const results = await Promise.allSettled(
+    SPORTS_LEAGUE_IDS.map(async (id) => {
+      const res = await fetch(`https://www.thesportsdb.com/api/v1/json/3/eventspastleague.php?id=${id}`, { signal: AbortSignal.timeout(8e3) });
+      if (!res.ok) return [];
+      const json = await res.json();
+      return (json.events ?? []).map((e5) => ({
+        id: `sports_${e5.idEvent}`,
+        title: `${e5.strHomeTeam} ${e5.intHomeScore ?? "?"} - ${e5.intAwayScore ?? "?"} ${e5.strAwayTeam}`,
+        description: `${e5.strLeague} \xB7 ${e5.strEvent}`,
+        url: e5.strVideo ?? `https://www.thesportsdb.com/event/${e5.idEvent}`,
+        imageUrl: e5.strThumb ?? e5.strBanner,
+        source: e5.strLeague ?? "TheSportsDB",
+        publishedAt: e5.dateEvent ? `${e5.dateEvent}T${e5.strTime ?? "12:00:00"}` : (/* @__PURE__ */ new Date()).toISOString(),
+        category: "sports"
+      }));
+    })
+  );
+  return results.flatMap((r5) => r5.status === "fulfilled" ? r5.value : []);
 }
 async function fetchMusicNews() {
   try {
@@ -101004,13 +101006,15 @@ async function registerAnalyticsRoutes(app) {
 // apps/api/src/services/referral-rewards.ts
 var USD_TIERS = [
   { maxCount: 10, usdTarget: 0.05 },
-  // 1-10. referral
-  { maxCount: 20, usdTarget: 0.05 },
-  // 11-20. referral
-  { maxCount: 40, usdTarget: 0.1 },
-  // 21-40. referral
-  { maxCount: Infinity, usdTarget: 0.2 }
-  // 41+. referral
+  // 1-10. referral   → 5 PART
+  { maxCount: 20, usdTarget: 0.1 },
+  // 11-20. referral  → 10 PART
+  { maxCount: 30, usdTarget: 0.15 },
+  // 21-30. referral  → 15 PART
+  { maxCount: 40, usdTarget: 0.2 },
+  // 31-40. referral  → 20 PART
+  { maxCount: Infinity, usdTarget: 0.25 }
+  // 41+. referral    → 25 PART
 ];
 var MIN_PRICE_FLOOR = 1e-4;
 async function calcReferralReward(referralCount) {
@@ -103040,9 +103044,10 @@ async function registerReferralRoutes(app) {
       rewardPerReferral: tier1,
       tiers: [
         { range: "1-10", usdTarget: 0.05 },
-        { range: "11-20", usdTarget: 0.05 },
-        { range: "21-40", usdTarget: 0.1 },
-        { range: "41+", usdTarget: 0.2 }
+        { range: "11-20", usdTarget: 0.1 },
+        { range: "21-30", usdTarget: 0.15 },
+        { range: "31-40", usdTarget: 0.2 },
+        { range: "41+", usdTarget: 0.25 }
       ]
     };
   });

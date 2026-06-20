@@ -2,12 +2,15 @@
 import { Wallet, Coins, ArrowUpRight, Copy, ExternalLink } from "lucide-react";
 import { useWallet, usePartBalance } from "../../hooks/useWallet";
 import { usePartPrice } from "../../hooks/useApi";
+import { useAuth } from "../auth/AuthContext";
+import { WalletConnectSection } from "../auth/WalletConnectSection";
 import { config } from "@saphara/config";
 import { useState } from "react";
 
 /** Cuzdan sayfasi: baglanti, bakiye, PART degeri, hizli islemler. */
 export function WalletPage() {
   const w = useWallet();
+  const auth = useAuth();
   const part = usePartBalance(
     config.contracts.partToken !== "0x0000000000000000000000000000000000000000" ? config.contracts.partToken : undefined
   );
@@ -26,7 +29,7 @@ export function WalletPage() {
         <div className="empty-state">
           <Wallet size={36} className="empty-icon" />
           <p className="empty-title">Cuzdan bagli degil</p>
-          <button className="primary-btn" onClick={() => w.connectors[0] && w.connect({ connector: w.connectors[0] })}>Cuzdani Bagla</button>
+          <WalletConnectSection auth={auth} />
         </div>
       </div>
     );

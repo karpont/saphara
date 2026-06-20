@@ -5,19 +5,24 @@ import {
   AreaChart, Area, LineChart, Line, BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
-import { TrendingUp, Users, Eye, Coins, Heart, Loader2, DollarSign } from "lucide-react";
+import { TrendingUp, Users, Eye, Coins, Heart, Loader2, DollarSign, Wallet as WalletIcon, Image as ImageIcon } from "lucide-react";
 import { usePartBalance, useWallet } from "../../hooks/useWallet";
-import { useMyAnalytics, useFollowerSeries } from "../../hooks/useApi";
+import { useMyAnalytics, useFollowerSeries, useMyNfts } from "../../hooks/useApi";
+import { useAuth } from "../auth/AuthContext";
+import { WalletConnectSection } from "../auth/WalletConnectSection";
 import { config } from "@saphara/config";
+import { formatUnits } from "viem";
 
 export function Dashboard() {
   const w      = useWallet();
+  const auth   = useAuth();
   const part   = usePartBalance(
     config.contracts.partToken !== "0x0000000000000000000000000000000000000000"
       ? config.contracts.partToken : undefined
   );
   const analytics      = useMyAnalytics();
   const followerSeries = useFollowerSeries();
+  const myNfts          = useMyNfts();
 
   const data    = analytics.data;
   const fSeries = followerSeries.data ?? [];
@@ -80,6 +85,63 @@ export function Dashboard() {
           <span className="muted">{part.formatted.slice(0, 8)} PART · cüzdan bağlı</span>
         )}
       </header>
+
+      {/* Varlıklarım — gerçek cüzdan bakiyesi + NFT'ler */}
+      <section className="dash-panel wide" style={{ marginBottom: 16 }}>
+        <h3><WalletIcon size={16} style={{ verticalAlign: "-2px", marginRight: 6 }} /> Varlıklarım</h3>
+        {!w.isConnected ? (
+          <div style={{ padding: "12px 0" }}>
+            <p className="muted" style={{ marginBottom: 10, fontSize: 13 }}>
+              Coin ve NFT varlıklarını görmek için cüzdanını bağla.
+            </p>
+            <WalletConnectSection auth={auth} />
+          </div>
+        ) : (
+          <div className="dash-holdings">
+            <div className="holding-row">
+              <div className="holding-item">
+                <span className="muted" style={{ fontSize: 12 }}>PART</span>
+                <strong>{Number(part.formatted || 0).toLocaleString("en-US", { maximumFractionDigits: 2 })}</strong>
+              </div>
+              <div className="holding-item">
+                <span className="muted" style={{ fontSize: 12 }}>{w.nativeBalance?.symbol ?? "BNB"}</span>
+                <strong>
+                  {w.nativeBalance ? Number(formatUnits(w.nativeBalance.value, w.nativeBalance.decimals)).toFixed(4) : "0"}
+                </strong>
+              </div>
+              <div className="holding-item">
+                <span className="muted" style={{ fontSize: 12 }}>NFT</span>
+                <strong>{myNfts.data?.tokens?.length ?? 0}</strong>
+              </div>
+            </div>
+
+            {myNfts.isLoading ? (
+              <Loader2 size={20} className="spin" style={{ marginTop: 10 }} />
+            ) : (myNfts.data?.tokens?.length ?? 0) > 0 ? (
+              <div className="nft-grid">
+                {myNfts.data!.tokens.slice(0, 8).map((tk: any) => (
+                  <a key={tk.id} href="/nft" className="nft-thumb">
+                    {tk.imageUrl ? <img src={tk.imageUrl} alt={tk.name ?? "NFT"} /> : <ImageIcon size={20} />}
+                    <span>{tk.collection?.symbol ?? tk.name ?? "NFT"}</span>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
+                Henüz NFT'in yok. <a href="/nft">NFT pazarına göz at →</a>
+              </p>
+            )}
+          </div>
+        )}
+        <style>{`
+          .holding-row { display: flex; gap: 24px; margin-bottom: 12px; flex-wrap: wrap; }
+          .holding-item { display: flex; flex-direction: column; gap: 2px; }
+          .holding-item strong { font-size: 18px; }
+          .nft-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 8px; max-width: 480px; }
+          .nft-thumb { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; color: var(--muted); text-decoration: none; }
+          .nft-thumb img { width: 56px; height: 56px; border-radius: 8px; object-fit: cover; }
+        `}</style>
+      </section>
 
       {/* KPI Kartları */}
       <div className="dash-kpis">

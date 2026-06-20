@@ -276,22 +276,28 @@ async function fetchHackerNews(): Promise<NewsItem[]> {
   } catch { return []; }
 }
 
+/* TheSportsDB ücretsiz tier her ligde "past events" için tek sonuç döner — birden fazla lig birleştirilir */
+const SPORTS_LEAGUE_IDS = [4328, 4335, 4480, 4387, 4346, 4424]; // EPL, La Liga, UCL, NBA, MLS, Süper Lig
+
 async function fetchSportsNews(): Promise<NewsItem[]> {
-  try {
-    const res = await fetch("https://www.thesportsdb.com/api/v1/json/3/eventspastleague.php?id=4328", { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) return [];
-    const json: any = await res.json();
-    return (json.events ?? []).slice(0, 10).map((e: any, i: number): NewsItem => ({
-      id:          `sports_${i}`,
-      title:       `${e.strHomeTeam} ${e.intHomeScore ?? "?"} - ${e.intAwayScore ?? "?"} ${e.strAwayTeam}`,
-      description: `${e.strLeague} · ${e.strEvent}`,
-      url:         e.strVideo ?? `https://www.thesportsdb.com/event/${e.idEvent}`,
-      imageUrl:    e.strThumb ?? e.strBanner,
-      source:      e.strLeague ?? "TheSportsDB",
-      publishedAt: e.dateEvent ? `${e.dateEvent}T${e.strTime ?? "12:00:00"}` : new Date().toISOString(),
-      category:    "sports",
-    }));
-  } catch { return []; }
+  const results = await Promise.allSettled(
+    SPORTS_LEAGUE_IDS.map(async (id) => {
+      const res = await fetch(`https://www.thesportsdb.com/api/v1/json/3/eventspastleague.php?id=${id}`, { signal: AbortSignal.timeout(8000) });
+      if (!res.ok) return [] as NewsItem[];
+      const json: any = await res.json();
+      return ((json.events ?? []) as any[]).map((e: any): NewsItem => ({
+        id:          `sports_${e.idEvent}`,
+        title:       `${e.strHomeTeam} ${e.intHomeScore ?? "?"} - ${e.intAwayScore ?? "?"} ${e.strAwayTeam}`,
+        description: `${e.strLeague} · ${e.strEvent}`,
+        url:         e.strVideo ?? `https://www.thesportsdb.com/event/${e.idEvent}`,
+        imageUrl:    e.strThumb ?? e.strBanner,
+        source:      e.strLeague ?? "TheSportsDB",
+        publishedAt: e.dateEvent ? `${e.dateEvent}T${e.strTime ?? "12:00:00"}` : new Date().toISOString(),
+        category:    "sports",
+      }));
+    })
+  );
+  return results.flatMap((r) => r.status === "fulfilled" ? r.value : []);
 }
 
 async function fetchMusicNews(): Promise<NewsItem[]> {

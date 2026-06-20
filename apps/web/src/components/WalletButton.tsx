@@ -2,6 +2,7 @@
 import { formatUnits } from "viem";
 import { useWallet, usePartBalance } from "../hooks/useWallet";
 import { useAuth } from "../features/auth/AuthContext";
+import { WalletConnectSection } from "../features/auth/WalletConnectSection";
 import { config } from "@saphara/config";
 
 /** Wallet status card shown in the right rail — displays address, balances, sign-in/out. */
@@ -14,12 +15,7 @@ export function WalletButton() {
   );
 
   if (!w.isConnected) {
-    const c = w.connectors[0];
-    return (
-      <button className="panel connect" onClick={() => c && w.connect({ connector: c })}>
-        Connect Wallet
-      </button>
-    );
+    return <WalletConnectSection auth={auth} />;
   }
 
   return (
