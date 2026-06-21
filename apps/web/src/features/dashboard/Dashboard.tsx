@@ -4,10 +4,11 @@ import { useMemo } from "react";
 import {
   AreaChart, Area, LineChart, Line, BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+  PieChart, Pie, Cell,
 } from "recharts";
 import { TrendingUp, Users, Eye, Coins, Heart, Loader2, DollarSign, Wallet as WalletIcon, Image as ImageIcon } from "lucide-react";
 import { usePartBalance, useWallet } from "../../hooks/useWallet";
-import { useMyAnalytics, useFollowerSeries, useMyNfts } from "../../hooks/useApi";
+import { useMyAnalytics, useFollowerSeries, useMyNfts, usePartPrice, useBnbData } from "../../hooks/useApi";
 import { useAuth } from "../auth/AuthContext";
 import { WalletConnectSection } from "../auth/WalletConnectSection";
 import { config } from "@saphara/config";
@@ -23,6 +24,18 @@ export function Dashboard() {
   const analytics      = useMyAnalytics();
   const followerSeries = useFollowerSeries();
   const myNfts          = useMyNfts();
+  const partPrice       = usePartPrice();
+  const bnbData         = useBnbData();
+
+  const partUsdValue = Number(part.formatted || 0) * (partPrice.data?.partUsdRate ?? 0.01);
+  const bnbUsdValue  = w.nativeBalance
+    ? Number(formatUnits(w.nativeBalance.value, w.nativeBalance.decimals)) * (bnbData.data?.priceUsd ?? 600)
+    : 0;
+  const portfolioData = [
+    { name: "PART", value: partUsdValue, color: "#f0b429" },
+    { name: w.nativeBalance?.symbol ?? "BNB", value: bnbUsdValue, color: "#fbbf24" },
+  ].filter((d) => d.value > 0);
+  const totalUsdValue = partUsdValue + bnbUsdValue;
 
   const data    = analytics.data;
   const fSeries = followerSeries.data ?? [];
@@ -113,7 +126,32 @@ export function Dashboard() {
                 <span className="muted" style={{ fontSize: 12 }}>NFT</span>
                 <strong>{myNfts.data?.tokens?.length ?? 0}</strong>
               </div>
+              <div className="holding-item">
+                <span className="muted" style={{ fontSize: 12 }}>Toplam Değer</span>
+                <strong>${totalUsdValue.toFixed(2)}</strong>
+              </div>
             </div>
+
+            {portfolioData.length > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+                <ResponsiveContainer width={90} height={90}>
+                  <PieChart>
+                    <Pie data={portfolioData} dataKey="value" nameKey="name" innerRadius={22} outerRadius={40} paddingAngle={2}>
+                      {portfolioData.map((d, i) => <Cell key={i} fill={d.color} />)}
+                    </Pie>
+                    <Tooltip formatter={(v: number) => `$${v.toFixed(2)}`} contentStyle={{ background: "#14161d", border: "1px solid #262a36", fontSize: 12 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
+                  {portfolioData.map((d) => (
+                    <span key={d.name}>
+                      <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: d.color, marginRight: 5 }} />
+                      {d.name}: ${d.value.toFixed(2)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {myNfts.isLoading ? (
               <Loader2 size={20} className="spin" style={{ marginTop: 10 }} />
