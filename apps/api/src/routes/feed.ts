@@ -1,9 +1,14 @@
 import type { FastifyInstance } from "fastify";
 import { rankFeed, type ContentSignals } from "@saphara/recommendation";
+import { RateLimiter } from "@saphara/security";
 import { prisma } from "../db/client";
 import { notify } from "./inbox";
 import { requireAuth } from "./auth";
 import { moderate } from "../services/moderation";
+import { recordSecurityEvent } from "../services/sentinel";
+
+/** Kullanıcı bazlı post spam koruması — IP limitinden ayrı (paylaşılan IP'lerde tek kötü kullanıcı diğerlerini etkilemesin). */
+const postLimiter = new RateLimiter(8, 0.05); // 8 burst, 20s'de 1 yenilenir (~3/dk sürdürülebilir)
 
 /** Bir Post'u oneri sinyallerine donusturur. */
 function toSignals(post: { qualityScore: number; createdAt: Date }): ContentSignals {
@@ -95,6 +100,11 @@ export async function registerFeedRoutes(app: FastifyInstance) {
     const userId = requireAuth(req, reply);
     if (!userId) return;
 
+    if (!postLimiter.allow(userId)) {
+      recordSecurityEvent("post_spam_blocked", "Kullanıcı post oluşturma rate limitine çarptı", userId);
+      return reply.code(429).send({ error: "Çok hızlı paylaşım yapıyorsunuz. Lütfen biraz bekleyin." });
+    }
+
     const { text, mediaUrl, mediaUrls, mediaType } = req.body as {
       text?: string; mediaUrl?: string; mediaUrls?: string[]; mediaType?: "image" | "video";
     };
@@ -128,6 +138,10 @@ export async function registerFeedRoutes(app: FastifyInstance) {
   app.post("/reels", async (req, reply) => {
     const userId = requireAuth(req, reply);
     if (!userId) return;
+    if (!postLimiter.allow(userId)) {
+      recordSecurityEvent("post_spam_blocked", "Kullanıcı reel oluşturma rate limitine çarptı", userId);
+      return reply.code(429).send({ error: "Çok hızlı paylaşım yapıyorsunuz. Lütfen biraz bekleyin." });
+    }
     const { videoUrl, caption, sound, posterUrl, durationSec } = req.body as any;
     if (!videoUrl) return reply.code(400).send({ error: "videoUrl gerekli" });
     const reel = await prisma.reel.create({

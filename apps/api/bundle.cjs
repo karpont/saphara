@@ -98164,7 +98164,282 @@ async function notify(userId, kind, text) {
   pushNotification(userId, { kind, text });
 }
 
+// apps/api/src/services/sentinel.ts
+var log = createLogger();
+var errorRing = [];
+var securityRing = [];
+var requestCounts = /* @__PURE__ */ new Map();
+function recordSecurityEvent(type, detail, ip) {
+  securityRing.push({ at: Date.now(), type, ip, detail });
+  if (securityRing.length > 100) securityRing.shift();
+}
+function recordRequest(ip) {
+  requestCounts.set(ip, (requestCounts.get(ip) ?? 0) + 1);
+}
+setInterval(() => requestCounts.clear(), 6e4).unref();
+async function runHealthChecks() {
+  const checks = [];
+  const t0 = Date.now();
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    checks.push({ name: "Veritaban\u0131", ok: true, latencyMs: Date.now() - t0 });
+  } catch (e5) {
+    checks.push({ name: "Veritaban\u0131", ok: false, detail: e5.message });
+  }
+  checks.push({
+    name: "Haber kayna\u011F\u0131",
+    ok: !!(process.env.GNEWS_API_KEY || process.env.NEWSDATA_API_KEY),
+    detail: process.env.GNEWS_API_KEY || process.env.NEWSDATA_API_KEY ? void 0 : "GNEWS_API_KEY veya NEWSDATA_API_KEY tan\u0131ms\u0131z"
+  });
+  checks.push({
+    name: "Medya depolama (S3)",
+    ok: !!process.env.S3_BUCKET,
+    detail: process.env.S3_BUCKET ? void 0 : "S3_BUCKET tan\u0131ms\u0131z \u2014 y\xFCkleme \xE7al\u0131\u015Fmaz"
+  });
+  checks.push({
+    name: "PART token adresi",
+    ok: !!process.env.NEXT_PUBLIC_PART_TOKEN_ADDRESS,
+    detail: process.env.NEXT_PUBLIC_PART_TOKEN_ADDRESS ? void 0 : "PART_TOKEN_ADDRESS tan\u0131ms\u0131z"
+  });
+  checks.push({
+    name: "JWT Secret",
+    ok: !!process.env.JWT_SECRET && process.env.JWT_SECRET !== "DEV_ONLY_SECRET_DEGISTIR",
+    detail: !process.env.JWT_SECRET ? "JWT_SECRET env tan\u0131ms\u0131z \u2014 DEV de\u011Feri kullan\u0131l\u0131yor!" : process.env.JWT_SECRET === "DEV_ONLY_SECRET_DEGISTIR" ? "JWT_SECRET h\xE2l\xE2 dev varsay\u0131lan\u0131 \u2014 \xFCretimde G\xDCVENL\u0130 DE\u011E\u0130L" : void 0
+  });
+  checks.push({
+    name: "CORS konfig\xFCrasyonu",
+    ok: !!process.env.CORS_ORIGIN,
+    detail: process.env.CORS_ORIGIN ? void 0 : "CORS_ORIGIN tan\u0131ms\u0131z \u2014 t\xFCm origin'lere a\xE7\u0131k"
+  });
+  const treasury = process.env.TREASURY_ADDRESS ?? process.env.NEXT_PUBLIC_TREASURY_ADDRESS;
+  checks.push({
+    name: "Treasury adresi",
+    ok: !!treasury && treasury !== "0x0000000000000000000000000000000000000000",
+    detail: treasury ? void 0 : "Treasury/owner adresi tan\u0131ms\u0131z"
+  });
+  return checks;
+}
+function isDbOffline(e5) {
+  const msg = e5?.message ?? "";
+  return msg.includes("Can't reach database") || msg.includes("ECONNREFUSED") || msg.includes("connect ENOENT");
+}
+async function collectStats() {
+  try {
+    const [users, posts, reels, listings, campaigns, tips, messages, stories] = await Promise.all([
+      prisma.user.count(),
+      prisma.post.count(),
+      prisma.reel.count(),
+      prisma.listing.count(),
+      prisma.campaign.count(),
+      prisma.tip.count(),
+      prisma.message.count(),
+      prisma.story.count()
+    ]);
+    const dayAgo = new Date(Date.now() - 864e5);
+    const [newUsers24h, newPosts24h, activeCampaigns] = await Promise.all([
+      prisma.user.count({ where: { createdAt: { gte: dayAgo } } }),
+      prisma.post.count({ where: { createdAt: { gte: dayAgo } } }),
+      prisma.campaign.count({ where: { status: "active" } })
+    ]);
+    return { users, posts, reels, listings, campaigns, activeCampaigns, tips, messages, stories, newUsers24h, newPosts24h };
+  } catch (e5) {
+    if (isDbOffline(e5)) return {};
+    throw e5;
+  }
+}
+async function detectIssues(health, stats) {
+  const issues = [];
+  for (const h5 of health) {
+    if (!h5.ok) {
+      issues.push({
+        id: `health_${h5.name.replace(/\s/g, "_")}`,
+        severity: ["Veritaban\u0131", "JWT Secret"].includes(h5.name) ? "critical" : "warning",
+        title: `${h5.name} sorunu`,
+        detail: h5.detail ?? "Kontrol ba\u015Far\u0131s\u0131z",
+        suggestion: suggestionFor(h5.name, h5.detail)
+      });
+    }
+    if (h5.latencyMs && h5.latencyMs > 500) {
+      issues.push({
+        id: `latency_${h5.name}`,
+        severity: "warning",
+        title: `${h5.name} yava\u015F (${h5.latencyMs}ms)`,
+        detail: "Yan\u0131t s\xFCresi y\xFCksek \u2014 sorgu optimizasyonu veya donan\u0131m g\xFC\xE7lendirmesi gerekebilir.",
+        suggestion: "Veritaban\u0131 indekslerini, connection pool boyutunu ve sorgu planlar\u0131n\u0131 kontrol et."
+      });
+    }
+  }
+  const tenMin = Date.now() - 6e5;
+  const recentErrors = errorRing.filter((e5) => e5.at > tenMin);
+  if (recentErrors.length > 20) {
+    issues.push({
+      id: "error_spike",
+      severity: "critical",
+      title: `Hata art\u0131\u015F\u0131: 10dk'da ${recentErrors.length} hata`,
+      detail: `En s\u0131k hata: ${topError(recentErrors)}`,
+      suggestion: "\u0130lgili rotay\u0131 ge\xE7ici devre d\u0131\u015F\u0131 b\u0131rak ve loglar\u0131 incele. Gerekirse h\u0131zl\u0131 d\xFCzeltme deploy et."
+    });
+  }
+  const secRecent = securityRing.filter((e5) => e5.at > tenMin);
+  const authFails = secRecent.filter((e5) => e5.type === "auth_fail");
+  if (authFails.length > 10) {
+    const topIp = mostCommon(authFails.map((e5) => e5.ip ?? "?"));
+    issues.push({
+      id: "brute_force",
+      severity: "critical",
+      title: `\u015E\xFCpheli kimlik do\u011Frulama giri\u015Fimi: ${authFails.length} ba\u015Far\u0131s\u0131z`,
+      detail: `En \xE7ok giri\u015Fim yapan IP: ${topIp}`,
+      suggestion: `${topIp} IP'sini ge\xE7ici blokla. Rate limit de\u011Ferini d\xFC\u015F\xFCr ve CAPTCHA e\u015Fi\u011Fini kontrol et.`,
+      actionable: `block_ip:${topIp}`
+    });
+  }
+  for (const [ip, count] of requestCounts) {
+    if (count > 200) {
+      issues.push({
+        id: `ratelimit_${ip}`,
+        severity: "warning",
+        title: `Y\xFCksek istek oran\u0131: ${ip} \u2014 ${count} istek/dk`,
+        detail: "Bir IP'den dakikada 200+ istek al\u0131nd\u0131.",
+        suggestion: `${ip} adresini ge\xE7ici blokla veya rate limit e\u015Fi\u011Fini d\xFC\u015F\xFCr.`,
+        actionable: `block_ip:${ip}`
+      });
+    }
+  }
+  const day = new Date(Date.now() - 864e5);
+  try {
+    const prolificAuthors = await prisma.post.groupBy({
+      by: ["authorId"],
+      where: { createdAt: { gte: day } },
+      _count: { id: true },
+      having: { id: { _count: { gt: 50 } } }
+    });
+    if (prolificAuthors.length > 0) {
+      issues.push({
+        id: "spam_detect",
+        severity: "warning",
+        title: `Olas\u0131 spam: ${prolificAuthors.length} hesap bug\xFCn 50+ g\xF6nderi payla\u015Ft\u0131`,
+        detail: "Normal kullan\u0131m i\xE7in ola\u011Fand\u0131\u015F\u0131 y\xFCksek g\xF6nderi say\u0131s\u0131.",
+        suggestion: "Bu hesaplar\u0131 incele. Spam ise ge\xE7ici olarak g\xF6nderimlerini s\u0131n\u0131rla."
+      });
+    }
+  } catch {
+  }
+  const treasury = process.env.TREASURY_ADDRESS ?? process.env.NEXT_PUBLIC_TREASURY_ADDRESS ?? "";
+  if (treasury) {
+    try {
+      const owner = await prisma.user.findFirst({
+        where: { walletAddress: { mode: "insensitive", equals: treasury } },
+        select: { id: true, handle: true, createdAt: true }
+      });
+      if (!owner) {
+        issues.push({
+          id: "treasury_unregistered",
+          severity: "warning",
+          title: "Treasury adresi platform'a kay\u0131tl\u0131 de\u011Fil",
+          detail: "Sahibin treasury adresi Saphara hesab\u0131yla e\u015Fle\u015Ftirilmemi\u015F.",
+          suggestion: "Treasury c\xFCzdan\u0131yla giri\u015F yaparak hesab\u0131 kaydet."
+        });
+      }
+    } catch {
+    }
+  }
+  if (stats.newUsers24h > 0) {
+    issues.push({
+      id: "growth",
+      severity: "info",
+      title: `Son 24 saatte ${stats.newUsers24h} yeni kullan\u0131c\u0131`,
+      detail: `Toplam ${stats.users} kullan\u0131c\u0131, ${stats.posts} g\xF6nderi, ${stats.reels} Reels.`,
+      suggestion: "B\xFCy\xFCme devam ediyor. Onboarding i\xE7eri\u011Fini g\xFC\xE7l\xFC tut."
+    });
+  }
+  if (stats.posts === 0 && stats.users > 0) {
+    issues.push({
+      id: "empty_feed",
+      severity: "warning",
+      title: "Ak\u0131\u015F bo\u015F",
+      detail: "Kullan\u0131c\u0131 var ama g\xF6nderi yok.",
+      suggestion: "`pnpm prisma:seed` ile demo veri ekle veya ilk i\xE7eri\u011Fi payla\u015F."
+    });
+  }
+  if (stats.activeCampaigns === 0 && stats.users > 10) {
+    issues.push({
+      id: "no_ads",
+      severity: "info",
+      title: "Aktif reklam kampanyas\u0131 yok",
+      detail: "Platform geliri i\xE7in reklam kampanyalar\u0131na ihtiya\xE7 var.",
+      suggestion: "Reklam sayfas\u0131n\u0131 ziyaret ederek ilk kampanyay\u0131 ba\u015Flat."
+    });
+  }
+  return issues;
+}
+function suggestionFor(name, _detail) {
+  const map3 = {
+    "Veritaban\u0131": "DATABASE_URL'i ve PostgreSQL servisini kontrol et. `docker compose ps` ile durumu g\xF6r.",
+    "JWT Secret": "JWT_SECRET env de\u011Fi\u015Fkenini g\xFC\xE7l\xFC (min 32 karakter) rastgele bir de\u011Ferle g\xFCncelle.",
+    "CORS konfig\xFCrasyonu": "CORS_ORIGIN'i production domain'ine k\u0131s\u0131tla (\xF6rn. https://saphara.io).",
+    "Treasury adresi": "TREASURY_ADDRESS env de\u011Fi\u015Fkenini owner c\xFCzdan adresiyle g\xFCncelle.",
+    "Medya depolama (S3)": "S3_BUCKET, AWS_ACCESS_KEY_ID ve AWS_SECRET_ACCESS_KEY env de\u011Fi\u015Fkenlerini tan\u0131mla."
+  };
+  return map3[name] ?? `${name} i\xE7in .env yap\u0131land\u0131rmas\u0131n\u0131 tamamla.`;
+}
+function topError(errors) {
+  const freq = {};
+  for (const e5 of errors) {
+    freq[e5.msg] = (freq[e5.msg] ?? 0) + 1;
+  }
+  return Object.entries(freq).sort((a5, b5) => b5[1] - a5[1])[0]?.[0] ?? "bilinmiyor";
+}
+function mostCommon(arr) {
+  const freq = {};
+  for (const v of arr) {
+    freq[v] = (freq[v] ?? 0) + 1;
+  }
+  return Object.entries(freq).sort((a5, b5) => b5[1] - a5[1])[0]?.[0] ?? "?";
+}
+async function generateReport() {
+  const health = await runHealthChecks();
+  const stats = await collectStats();
+  const issues = await detectIssues(health, stats);
+  const critical = issues.filter((i5) => i5.severity === "critical").length;
+  const warnings = issues.filter((i5) => i5.severity === "warning").length;
+  const summary = critical > 0 ? `\u26A0 ${critical} kritik sorun \u2014 acil ilgi gerekiyor.` : warnings > 0 ? `${warnings} uyar\u0131 var. Sistem \xE7al\u0131\u015F\u0131yor ama iyile\u015Ftirme \xF6nerileri mevcut.` : "\u2713 Sistem sa\u011Fl\u0131kl\u0131. T\xFCm kontroller ge\xE7ti.";
+  log.info("bot raporu \xFCretildi", { critical, warnings });
+  if (critical > 0) {
+    await notifyOwnerRealtime(critical, issues.filter((i5) => i5.severity === "critical"));
+  }
+  return {
+    generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    health,
+    stats,
+    recentErrors: errorRing.slice(-20).reverse(),
+    recentSecurityEvents: securityRing.slice(-10).reverse(),
+    issues,
+    summary
+  };
+}
+var lastAlertAt = 0;
+async function notifyOwnerRealtime(count, criticals) {
+  if (Date.now() - lastAlertAt < 3e5) return;
+  lastAlertAt = Date.now();
+  const ownerAddr = (process.env.TREASURY_ADDRESS ?? process.env.NEXT_PUBLIC_TREASURY_ADDRESS ?? "").toLowerCase();
+  if (!ownerAddr) return;
+  try {
+    const owner = await prisma.user.findFirst({
+      where: { walletAddress: { mode: "insensitive", equals: ownerAddr } },
+      select: { id: true }
+    });
+    if (!owner) return;
+    deliverTo(owner.id, {
+      type: "notification",
+      payload: { kind: "system_alert", text: `\u26A0 ${count} kritik sorun: ${criticals.map((c5) => c5.title).join(", ")}` },
+      ts: Date.now()
+    });
+  } catch {
+  }
+}
+
 // apps/api/src/routes/feed.ts
+var postLimiter = new RateLimiter(8, 0.05);
 function toSignals(post) {
   const ageHours = (Date.now() - post.createdAt.getTime()) / 36e5;
   return {
@@ -98277,6 +98552,10 @@ async function registerFeedRoutes(app) {
   app.post("/posts", async (req, reply) => {
     const userId = requireAuth(req, reply);
     if (!userId) return;
+    if (!postLimiter.allow(userId)) {
+      recordSecurityEvent("post_spam_blocked", "Kullan\u0131c\u0131 post olu\u015Fturma rate limitine \xE7arpt\u0131", userId);
+      return reply.code(429).send({ error: "\xC7ok h\u0131zl\u0131 payla\u015F\u0131m yap\u0131yorsunuz. L\xFCtfen biraz bekleyin." });
+    }
     const { text, mediaUrl, mediaUrls, mediaType } = req.body;
     const cleanText = text?.trim();
     if (!cleanText && !mediaUrl && !mediaUrls?.length) return reply.code(400).send({ error: "Bo\u015F g\xF6nderi" });
@@ -98302,6 +98581,10 @@ async function registerFeedRoutes(app) {
   app.post("/reels", async (req, reply) => {
     const userId = requireAuth(req, reply);
     if (!userId) return;
+    if (!postLimiter.allow(userId)) {
+      recordSecurityEvent("post_spam_blocked", "Kullan\u0131c\u0131 reel olu\u015Fturma rate limitine \xE7arpt\u0131", userId);
+      return reply.code(429).send({ error: "\xC7ok h\u0131zl\u0131 payla\u015F\u0131m yap\u0131yorsunuz. L\xFCtfen biraz bekleyin." });
+    }
     const { videoUrl, caption, sound, posterUrl, durationSec } = req.body;
     if (!videoUrl) return reply.code(400).send({ error: "videoUrl gerekli" });
     const reel = await prisma.reel.create({
@@ -99194,7 +99477,7 @@ async function registerAdRoutes(_app) {
 
 // apps/api/src/services/transcode.ts
 var import_node_child_process = require("node:child_process");
-var log = createLogger();
+var log2 = createLogger();
 var queue = [];
 var jobs = /* @__PURE__ */ new Map();
 var working = false;
@@ -99233,11 +99516,11 @@ async function drain() {
       await runFfmpeg(job);
       job.status = "done";
       job.progress = 100;
-      log.info("transcode tamam", { id: job.id });
+      log2.info("transcode tamam", { id: job.id });
     } catch (e5) {
       job.status = "error";
       job.error = e5.message;
-      log.error("transcode hata", { id: job.id, err: job.error });
+      log2.error("transcode hata", { id: job.id, err: job.error });
     }
   }
   working = false;
@@ -99504,280 +99787,6 @@ async function requireOwner(req, reply) {
     return void 0;
   }
   return userId;
-}
-
-// apps/api/src/services/sentinel.ts
-var log2 = createLogger();
-var errorRing = [];
-var securityRing = [];
-var requestCounts = /* @__PURE__ */ new Map();
-function recordSecurityEvent(type, detail, ip) {
-  securityRing.push({ at: Date.now(), type, ip, detail });
-  if (securityRing.length > 100) securityRing.shift();
-}
-function recordRequest(ip) {
-  requestCounts.set(ip, (requestCounts.get(ip) ?? 0) + 1);
-}
-setInterval(() => requestCounts.clear(), 6e4).unref();
-async function runHealthChecks() {
-  const checks = [];
-  const t0 = Date.now();
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    checks.push({ name: "Veritaban\u0131", ok: true, latencyMs: Date.now() - t0 });
-  } catch (e5) {
-    checks.push({ name: "Veritaban\u0131", ok: false, detail: e5.message });
-  }
-  checks.push({
-    name: "Haber kayna\u011F\u0131",
-    ok: !!(process.env.GNEWS_API_KEY || process.env.NEWSDATA_API_KEY),
-    detail: process.env.GNEWS_API_KEY || process.env.NEWSDATA_API_KEY ? void 0 : "GNEWS_API_KEY veya NEWSDATA_API_KEY tan\u0131ms\u0131z"
-  });
-  checks.push({
-    name: "Medya depolama (S3)",
-    ok: !!process.env.S3_BUCKET,
-    detail: process.env.S3_BUCKET ? void 0 : "S3_BUCKET tan\u0131ms\u0131z \u2014 y\xFCkleme \xE7al\u0131\u015Fmaz"
-  });
-  checks.push({
-    name: "PART token adresi",
-    ok: !!process.env.NEXT_PUBLIC_PART_TOKEN_ADDRESS,
-    detail: process.env.NEXT_PUBLIC_PART_TOKEN_ADDRESS ? void 0 : "PART_TOKEN_ADDRESS tan\u0131ms\u0131z"
-  });
-  checks.push({
-    name: "JWT Secret",
-    ok: !!process.env.JWT_SECRET && process.env.JWT_SECRET !== "DEV_ONLY_SECRET_DEGISTIR",
-    detail: !process.env.JWT_SECRET ? "JWT_SECRET env tan\u0131ms\u0131z \u2014 DEV de\u011Feri kullan\u0131l\u0131yor!" : process.env.JWT_SECRET === "DEV_ONLY_SECRET_DEGISTIR" ? "JWT_SECRET h\xE2l\xE2 dev varsay\u0131lan\u0131 \u2014 \xFCretimde G\xDCVENL\u0130 DE\u011E\u0130L" : void 0
-  });
-  checks.push({
-    name: "CORS konfig\xFCrasyonu",
-    ok: !!process.env.CORS_ORIGIN,
-    detail: process.env.CORS_ORIGIN ? void 0 : "CORS_ORIGIN tan\u0131ms\u0131z \u2014 t\xFCm origin'lere a\xE7\u0131k"
-  });
-  const treasury = process.env.TREASURY_ADDRESS ?? process.env.NEXT_PUBLIC_TREASURY_ADDRESS;
-  checks.push({
-    name: "Treasury adresi",
-    ok: !!treasury && treasury !== "0x0000000000000000000000000000000000000000",
-    detail: treasury ? void 0 : "Treasury/owner adresi tan\u0131ms\u0131z"
-  });
-  return checks;
-}
-function isDbOffline(e5) {
-  const msg = e5?.message ?? "";
-  return msg.includes("Can't reach database") || msg.includes("ECONNREFUSED") || msg.includes("connect ENOENT");
-}
-async function collectStats() {
-  try {
-    const [users, posts, reels, listings, campaigns, tips, messages, stories] = await Promise.all([
-      prisma.user.count(),
-      prisma.post.count(),
-      prisma.reel.count(),
-      prisma.listing.count(),
-      prisma.campaign.count(),
-      prisma.tip.count(),
-      prisma.message.count(),
-      prisma.story.count()
-    ]);
-    const dayAgo = new Date(Date.now() - 864e5);
-    const [newUsers24h, newPosts24h, activeCampaigns] = await Promise.all([
-      prisma.user.count({ where: { createdAt: { gte: dayAgo } } }),
-      prisma.post.count({ where: { createdAt: { gte: dayAgo } } }),
-      prisma.campaign.count({ where: { status: "active" } })
-    ]);
-    return { users, posts, reels, listings, campaigns, activeCampaigns, tips, messages, stories, newUsers24h, newPosts24h };
-  } catch (e5) {
-    if (isDbOffline(e5)) return {};
-    throw e5;
-  }
-}
-async function detectIssues(health, stats) {
-  const issues = [];
-  for (const h5 of health) {
-    if (!h5.ok) {
-      issues.push({
-        id: `health_${h5.name.replace(/\s/g, "_")}`,
-        severity: ["Veritaban\u0131", "JWT Secret"].includes(h5.name) ? "critical" : "warning",
-        title: `${h5.name} sorunu`,
-        detail: h5.detail ?? "Kontrol ba\u015Far\u0131s\u0131z",
-        suggestion: suggestionFor(h5.name, h5.detail)
-      });
-    }
-    if (h5.latencyMs && h5.latencyMs > 500) {
-      issues.push({
-        id: `latency_${h5.name}`,
-        severity: "warning",
-        title: `${h5.name} yava\u015F (${h5.latencyMs}ms)`,
-        detail: "Yan\u0131t s\xFCresi y\xFCksek \u2014 sorgu optimizasyonu veya donan\u0131m g\xFC\xE7lendirmesi gerekebilir.",
-        suggestion: "Veritaban\u0131 indekslerini, connection pool boyutunu ve sorgu planlar\u0131n\u0131 kontrol et."
-      });
-    }
-  }
-  const tenMin = Date.now() - 6e5;
-  const recentErrors = errorRing.filter((e5) => e5.at > tenMin);
-  if (recentErrors.length > 20) {
-    issues.push({
-      id: "error_spike",
-      severity: "critical",
-      title: `Hata art\u0131\u015F\u0131: 10dk'da ${recentErrors.length} hata`,
-      detail: `En s\u0131k hata: ${topError(recentErrors)}`,
-      suggestion: "\u0130lgili rotay\u0131 ge\xE7ici devre d\u0131\u015F\u0131 b\u0131rak ve loglar\u0131 incele. Gerekirse h\u0131zl\u0131 d\xFCzeltme deploy et."
-    });
-  }
-  const secRecent = securityRing.filter((e5) => e5.at > tenMin);
-  const authFails = secRecent.filter((e5) => e5.type === "auth_fail");
-  if (authFails.length > 10) {
-    const topIp = mostCommon(authFails.map((e5) => e5.ip ?? "?"));
-    issues.push({
-      id: "brute_force",
-      severity: "critical",
-      title: `\u015E\xFCpheli kimlik do\u011Frulama giri\u015Fimi: ${authFails.length} ba\u015Far\u0131s\u0131z`,
-      detail: `En \xE7ok giri\u015Fim yapan IP: ${topIp}`,
-      suggestion: `${topIp} IP'sini ge\xE7ici blokla. Rate limit de\u011Ferini d\xFC\u015F\xFCr ve CAPTCHA e\u015Fi\u011Fini kontrol et.`,
-      actionable: `block_ip:${topIp}`
-    });
-  }
-  for (const [ip, count] of requestCounts) {
-    if (count > 200) {
-      issues.push({
-        id: `ratelimit_${ip}`,
-        severity: "warning",
-        title: `Y\xFCksek istek oran\u0131: ${ip} \u2014 ${count} istek/dk`,
-        detail: "Bir IP'den dakikada 200+ istek al\u0131nd\u0131.",
-        suggestion: `${ip} adresini ge\xE7ici blokla veya rate limit e\u015Fi\u011Fini d\xFC\u015F\xFCr.`,
-        actionable: `block_ip:${ip}`
-      });
-    }
-  }
-  const day = new Date(Date.now() - 864e5);
-  try {
-    const prolificAuthors = await prisma.post.groupBy({
-      by: ["authorId"],
-      where: { createdAt: { gte: day } },
-      _count: { id: true },
-      having: { id: { _count: { gt: 50 } } }
-    });
-    if (prolificAuthors.length > 0) {
-      issues.push({
-        id: "spam_detect",
-        severity: "warning",
-        title: `Olas\u0131 spam: ${prolificAuthors.length} hesap bug\xFCn 50+ g\xF6nderi payla\u015Ft\u0131`,
-        detail: "Normal kullan\u0131m i\xE7in ola\u011Fand\u0131\u015F\u0131 y\xFCksek g\xF6nderi say\u0131s\u0131.",
-        suggestion: "Bu hesaplar\u0131 incele. Spam ise ge\xE7ici olarak g\xF6nderimlerini s\u0131n\u0131rla."
-      });
-    }
-  } catch {
-  }
-  const treasury = process.env.TREASURY_ADDRESS ?? process.env.NEXT_PUBLIC_TREASURY_ADDRESS ?? "";
-  if (treasury) {
-    try {
-      const owner = await prisma.user.findFirst({
-        where: { walletAddress: { mode: "insensitive", equals: treasury } },
-        select: { id: true, handle: true, createdAt: true }
-      });
-      if (!owner) {
-        issues.push({
-          id: "treasury_unregistered",
-          severity: "warning",
-          title: "Treasury adresi platform'a kay\u0131tl\u0131 de\u011Fil",
-          detail: "Sahibin treasury adresi Saphara hesab\u0131yla e\u015Fle\u015Ftirilmemi\u015F.",
-          suggestion: "Treasury c\xFCzdan\u0131yla giri\u015F yaparak hesab\u0131 kaydet."
-        });
-      }
-    } catch {
-    }
-  }
-  if (stats.newUsers24h > 0) {
-    issues.push({
-      id: "growth",
-      severity: "info",
-      title: `Son 24 saatte ${stats.newUsers24h} yeni kullan\u0131c\u0131`,
-      detail: `Toplam ${stats.users} kullan\u0131c\u0131, ${stats.posts} g\xF6nderi, ${stats.reels} Reels.`,
-      suggestion: "B\xFCy\xFCme devam ediyor. Onboarding i\xE7eri\u011Fini g\xFC\xE7l\xFC tut."
-    });
-  }
-  if (stats.posts === 0 && stats.users > 0) {
-    issues.push({
-      id: "empty_feed",
-      severity: "warning",
-      title: "Ak\u0131\u015F bo\u015F",
-      detail: "Kullan\u0131c\u0131 var ama g\xF6nderi yok.",
-      suggestion: "`pnpm prisma:seed` ile demo veri ekle veya ilk i\xE7eri\u011Fi payla\u015F."
-    });
-  }
-  if (stats.activeCampaigns === 0 && stats.users > 10) {
-    issues.push({
-      id: "no_ads",
-      severity: "info",
-      title: "Aktif reklam kampanyas\u0131 yok",
-      detail: "Platform geliri i\xE7in reklam kampanyalar\u0131na ihtiya\xE7 var.",
-      suggestion: "Reklam sayfas\u0131n\u0131 ziyaret ederek ilk kampanyay\u0131 ba\u015Flat."
-    });
-  }
-  return issues;
-}
-function suggestionFor(name, _detail) {
-  const map3 = {
-    "Veritaban\u0131": "DATABASE_URL'i ve PostgreSQL servisini kontrol et. `docker compose ps` ile durumu g\xF6r.",
-    "JWT Secret": "JWT_SECRET env de\u011Fi\u015Fkenini g\xFC\xE7l\xFC (min 32 karakter) rastgele bir de\u011Ferle g\xFCncelle.",
-    "CORS konfig\xFCrasyonu": "CORS_ORIGIN'i production domain'ine k\u0131s\u0131tla (\xF6rn. https://saphara.io).",
-    "Treasury adresi": "TREASURY_ADDRESS env de\u011Fi\u015Fkenini owner c\xFCzdan adresiyle g\xFCncelle.",
-    "Medya depolama (S3)": "S3_BUCKET, AWS_ACCESS_KEY_ID ve AWS_SECRET_ACCESS_KEY env de\u011Fi\u015Fkenlerini tan\u0131mla."
-  };
-  return map3[name] ?? `${name} i\xE7in .env yap\u0131land\u0131rmas\u0131n\u0131 tamamla.`;
-}
-function topError(errors) {
-  const freq = {};
-  for (const e5 of errors) {
-    freq[e5.msg] = (freq[e5.msg] ?? 0) + 1;
-  }
-  return Object.entries(freq).sort((a5, b5) => b5[1] - a5[1])[0]?.[0] ?? "bilinmiyor";
-}
-function mostCommon(arr) {
-  const freq = {};
-  for (const v of arr) {
-    freq[v] = (freq[v] ?? 0) + 1;
-  }
-  return Object.entries(freq).sort((a5, b5) => b5[1] - a5[1])[0]?.[0] ?? "?";
-}
-async function generateReport() {
-  const health = await runHealthChecks();
-  const stats = await collectStats();
-  const issues = await detectIssues(health, stats);
-  const critical = issues.filter((i5) => i5.severity === "critical").length;
-  const warnings = issues.filter((i5) => i5.severity === "warning").length;
-  const summary = critical > 0 ? `\u26A0 ${critical} kritik sorun \u2014 acil ilgi gerekiyor.` : warnings > 0 ? `${warnings} uyar\u0131 var. Sistem \xE7al\u0131\u015F\u0131yor ama iyile\u015Ftirme \xF6nerileri mevcut.` : "\u2713 Sistem sa\u011Fl\u0131kl\u0131. T\xFCm kontroller ge\xE7ti.";
-  log2.info("bot raporu \xFCretildi", { critical, warnings });
-  if (critical > 0) {
-    await notifyOwnerRealtime(critical, issues.filter((i5) => i5.severity === "critical"));
-  }
-  return {
-    generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
-    health,
-    stats,
-    recentErrors: errorRing.slice(-20).reverse(),
-    recentSecurityEvents: securityRing.slice(-10).reverse(),
-    issues,
-    summary
-  };
-}
-var lastAlertAt = 0;
-async function notifyOwnerRealtime(count, criticals) {
-  if (Date.now() - lastAlertAt < 3e5) return;
-  lastAlertAt = Date.now();
-  const ownerAddr = (process.env.TREASURY_ADDRESS ?? process.env.NEXT_PUBLIC_TREASURY_ADDRESS ?? "").toLowerCase();
-  if (!ownerAddr) return;
-  try {
-    const owner = await prisma.user.findFirst({
-      where: { walletAddress: { mode: "insensitive", equals: ownerAddr } },
-      select: { id: true }
-    });
-    if (!owner) return;
-    deliverTo(owner.id, {
-      type: "notification",
-      payload: { kind: "system_alert", text: `\u26A0 ${count} kritik sorun: ${criticals.map((c5) => c5.title).join(", ")}` },
-      ts: Date.now()
-    });
-  } catch {
-  }
 }
 
 // apps/api/src/services/price.ts
