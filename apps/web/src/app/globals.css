@@ -697,6 +697,8 @@ body {
 .budget-bar-labels { display:flex; justify-content:space-between; margin-bottom:4px; }
 .budget-bar-track { height:6px; background:var(--surface-2); border-radius:999px; overflow:hidden; }
 .budget-bar-fill { height:100%; background:var(--accent); border-radius:999px; transition:width .3s; }
+.campaign-detail-toggle { width:100%; justify-content:center; margin-top:12px; font-size:12px; gap:4px; }
+.campaign-daily-chart { margin-top:10px; padding-top:10px; border-top:1px dashed var(--border); }
 /* Kampanya oluşturma */
 .create-campaign { padding:0 0 40px; }
 .step-indicator { display:flex; align-items:center; gap:8px; padding:20px 20px 0; }

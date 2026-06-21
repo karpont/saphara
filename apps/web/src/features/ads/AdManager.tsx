@@ -4,9 +4,10 @@ import { useState } from "react";
 import {
   Megaphone, Plus, BarChart3, Pause, Play, Trash2, Eye, MousePointer,
   Target, Users, DollarSign, Calendar, Image as ImageIcon, ChevronRight,
-  ChevronLeft, Loader2, CheckCircle2, AlertCircle,
+  ChevronLeft, Loader2, CheckCircle2, AlertCircle, ChevronDown, ChevronUp,
 } from "lucide-react";
-import { useMyCampaigns, useCreateCampaign, useCampaignAction } from "../../hooks/useApi";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { useMyCampaigns, useCreateCampaign, useCampaignAction, useCampaignDetail } from "../../hooks/useApi";
 
 type Tab = "list" | "create";
 type Step = 1 | 2 | 3 | 4 | 5;
@@ -65,6 +66,7 @@ function CampaignList({ campaigns, isLoading, onAction, onNew }: {
   onAction: (id: string, a: "pause" | "resume" | "end") => void;
   onNew: () => void;
 }) {
+  const [expanded, setExpanded] = useState<string | null>(null);
   if (isLoading) return <div className="feed-state"><Loader2 size={28} className="spin" /></div>;
 
   if (campaigns.length === 0) {
@@ -130,9 +132,51 @@ function CampaignList({ campaigns, isLoading, onAction, onNew }: {
                 <div className="budget-bar-fill" style={{ width: `${pct}%` }} />
               </div>
             </div>
+
+            <button
+              className="ghost-btn campaign-detail-toggle"
+              onClick={() => setExpanded(expanded === c.id ? null : c.id)}
+            >
+              {expanded === c.id ? <><ChevronUp size={14} /> Günlük detayı gizle</> : <><ChevronDown size={14} /> Günlük detay & grafik</>}
+            </button>
+
+            {expanded === c.id && <CampaignDailyChart campaignId={c.id} />}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/* ── Günlük gösterim/tıklama grafiği (campaign detail'den byDay) ── */
+function CampaignDailyChart({ campaignId }: { campaignId: string }) {
+  const detail = useCampaignDetail(campaignId);
+
+  if (detail.isLoading) return <div style={{ padding: 16 }}><Loader2 size={18} className="spin" /></div>;
+  if (detail.isError || !detail.data?.byDay) {
+    return <p className="muted" style={{ padding: "8px 0", fontSize: 12 }}>Henüz günlük veri yok.</p>;
+  }
+
+  const chartData = Object.entries(detail.data.byDay as Record<string, { impressions: number; clicks: number }>)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([day, v]) => ({ day: day.slice(5), gosterim: v.impressions, tiklama: v.clicks }));
+
+  if (chartData.length === 0) {
+    return <p className="muted" style={{ padding: "8px 0", fontSize: 12 }}>Henüz günlük veri yok.</p>;
+  }
+
+  return (
+    <div className="campaign-daily-chart">
+      <ResponsiveContainer width="100%" height={180}>
+        <LineChart data={chartData}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#262a36" />
+          <XAxis dataKey="day" stroke="#8b90a0" tick={{ fontSize: 11 }} />
+          <YAxis stroke="#8b90a0" tick={{ fontSize: 11 }} />
+          <Tooltip contentStyle={{ background: "#14161d", border: "1px solid #262a36" }} />
+          <Line type="monotone" dataKey="gosterim" stroke="#f0b429" strokeWidth={2} dot={{ r: 2 }} name="Gösterim" />
+          <Line type="monotone" dataKey="tiklama" stroke="#5b8def" strokeWidth={2} dot={{ r: 2 }} name="Tıklama" />
+        </LineChart>
+      </ResponsiveContainer>
     </div>
   );
 }
