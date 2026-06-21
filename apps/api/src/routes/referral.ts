@@ -144,11 +144,10 @@ export async function registerReferralRoutes(app: FastifyInstance) {
       totalPartDistributed: Number(totalPart._sum.rewardPart ?? 0),
       rewardPerReferral: tier1,
       tiers: [
-        { range: "1-10",  usdTarget: 0.05 },
-        { range: "11-20", usdTarget: 0.10 },
-        { range: "21-30", usdTarget: 0.15 },
-        { range: "31-40", usdTarget: 0.20 },
-        { range: "41+",   usdTarget: 0.25 },
+        { range: "1-5",   usdTarget: 0.01 },
+        { range: "6-10",  usdTarget: 0.10 },
+        { range: "11-20", usdTarget: 0.20 },
+        { range: "21+",   usdTarget: 0.50 },
       ],
     };
   });

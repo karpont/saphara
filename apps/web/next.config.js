@@ -10,20 +10,15 @@ const nextConfig = {
   async headers() {
     return [
       {
-        // Tüm sayfalar: COOP same-origin-allow-popups (cüzdan popup'ları için)
-        // COEP credentialless: dış görsellere izin verir, SharedArrayBuffer da çalışır
+        // Tüm sayfalar (Studio/Create dahil): COOP same-origin-allow-popups (cüzdan popup'ları için)
+        // COEP credentialless: dış görsellere CORP header'ı olmasa da izin verir,
+        // AYNI ZAMANDA cross-origin isolation sağlar (FFmpeg WASM/SharedArrayBuffer için yeterli).
+        // Önceden Studio/Create'de "require-corp" kullanılıyordu — bu, CORP header'sız tüm
+        // dış görselleri (avatar, örnek resim) sessizce engelliyordu. credentialless ile değiştirildi.
         source: "/(.*)",
         headers: [
           { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
           { key: "Cross-Origin-Embedder-Policy", value: "credentialless" },
-        ],
-      },
-      {
-        // Studio + Create: FFmpeg WASM için tam cross-origin isolation
-        source: "/(studio|create)(.*)",
-        headers: [
-          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
-          { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
         ],
       },
     ];

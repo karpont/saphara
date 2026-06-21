@@ -101014,16 +101014,14 @@ async function registerAnalyticsRoutes(app) {
 
 // apps/api/src/services/referral-rewards.ts
 var USD_TIERS = [
-  { maxCount: 10, usdTarget: 0.05 },
-  // 1-10. referral   → 5 PART
-  { maxCount: 20, usdTarget: 0.1 },
-  // 11-20. referral  → 10 PART
-  { maxCount: 30, usdTarget: 0.15 },
-  // 21-30. referral  → 15 PART
-  { maxCount: 40, usdTarget: 0.2 },
-  // 31-40. referral  → 20 PART
-  { maxCount: Infinity, usdTarget: 0.25 }
-  // 41+. referral    → 25 PART
+  { maxCount: 5, usdTarget: 0.01 },
+  // 1-5. referral    → 1 PART
+  { maxCount: 10, usdTarget: 0.1 },
+  // 6-10. referral   → 10 PART
+  { maxCount: 20, usdTarget: 0.2 },
+  // 11-20. referral  → 20 PART
+  { maxCount: Infinity, usdTarget: 0.5 }
+  // 21+. referral    → 50 PART
 ];
 var MIN_PRICE_FLOOR = 1e-4;
 async function calcReferralReward(referralCount) {
@@ -101074,6 +101072,7 @@ async function getOrCreateStats(userId) {
     data: { userId, referralCode: code }
   });
 }
+var LEVEL_MILESTONE_PART = { 5: 20, 20: 80, 30: 150 };
 async function addXp(userId, amount) {
   const stats = await getOrCreateStats(userId);
   const newXp = stats.xp + amount;
@@ -101082,7 +101081,14 @@ async function addXp(userId, amount) {
     where: { userId },
     data: { xp: newXp, level: newLevel }
   });
-  return { xp: newXp, level: newLevel, levelUp: newLevel > stats.level };
+  let milestoneReward = 0;
+  for (let lvl = stats.level + 1; lvl <= newLevel; lvl++) {
+    if (LEVEL_MILESTONE_PART[lvl]) milestoneReward += LEVEL_MILESTONE_PART[lvl];
+  }
+  if (milestoneReward > 0) {
+    await prisma.user.update({ where: { id: userId }, data: { earningsPart: { increment: milestoneReward } } });
+  }
+  return { xp: newXp, level: newLevel, levelUp: newLevel > stats.level, milestoneReward };
 }
 async function registerGamificationRoutes(app) {
   app.get("/gamification/stats", async (req, reply) => {
@@ -102794,6 +102800,7 @@ async function registerNftRoutes(app) {
 }
 
 // apps/api/src/routes/dao.ts
+var MIN_PART_FOR_PROPOSAL = 100;
 async function registerDaoRoutes(app) {
   app.get("/dao/proposals", async (req) => {
     const { status, type, limit = "20", offset = "0" } = req.query;
@@ -102836,6 +102843,14 @@ async function registerDaoRoutes(app) {
   app.post("/dao/proposals", async (req, reply) => {
     const userId = requireAuth(req, reply);
     if (!userId) return;
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { earningsPart: true } });
+    if (Number(user?.earningsPart ?? 0) < MIN_PART_FOR_PROPOSAL) {
+      return reply.code(403).send({
+        error: `Anket a\xE7mak i\xE7in en az ${MIN_PART_FOR_PROPOSAL} PART bakiyesi gerekiyor.`,
+        required: MIN_PART_FOR_PROPOSAL,
+        current: Number(user?.earningsPart ?? 0)
+      });
+    }
     const {
       title,
       description,
@@ -103052,11 +103067,10 @@ async function registerReferralRoutes(app) {
       totalPartDistributed: Number(totalPart._sum.rewardPart ?? 0),
       rewardPerReferral: tier1,
       tiers: [
-        { range: "1-10", usdTarget: 0.05 },
-        { range: "11-20", usdTarget: 0.1 },
-        { range: "21-30", usdTarget: 0.15 },
-        { range: "31-40", usdTarget: 0.2 },
-        { range: "41+", usdTarget: 0.25 }
+        { range: "1-5", usdTarget: 0.01 },
+        { range: "6-10", usdTarget: 0.1 },
+        { range: "11-20", usdTarget: 0.2 },
+        { range: "21+", usdTarget: 0.5 }
       ]
     };
   });

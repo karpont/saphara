@@ -2,6 +2,9 @@ import type { FastifyInstance } from "fastify";
 import { prisma } from "../db/client";
 import { requireAuth } from "./auth";
 
+/** DAO proposal açabilmek için gereken minimum PART bakiyesi (spam'i caydırır). */
+const MIN_PART_FOR_PROPOSAL = 100;
+
 export async function registerDaoRoutes(app: FastifyInstance) {
 
   /* ── List proposals ────────────────────────────────────────── */
@@ -52,6 +55,15 @@ export async function registerDaoRoutes(app: FastifyInstance) {
   app.post("/dao/proposals", async (req, reply) => {
     const userId = requireAuth(req, reply);
     if (!userId) return;
+
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { earningsPart: true } });
+    if (Number(user?.earningsPart ?? 0) < MIN_PART_FOR_PROPOSAL) {
+      return reply.code(403).send({
+        error: `Anket açmak için en az ${MIN_PART_FOR_PROPOSAL} PART bakiyesi gerekiyor.`,
+        required: MIN_PART_FOR_PROPOSAL,
+        current: Number(user?.earningsPart ?? 0),
+      });
+    }
 
     const {
       title, description, type = "general",

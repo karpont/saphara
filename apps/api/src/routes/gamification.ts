@@ -32,6 +32,9 @@ async function getOrCreateStats(userId: string) {
   });
 }
 
+/** Seviye kilometre taşı ödülleri — düşürülmüş, gerçekten dağıtılan miktarlar. */
+const LEVEL_MILESTONE_PART: Record<number, number> = { 5: 20, 20: 80, 30: 150 };
+
 export async function addXp(userId: string, amount: number) {
   const stats = await getOrCreateStats(userId);
   const newXp = stats.xp + amount;
@@ -40,7 +43,16 @@ export async function addXp(userId: string, amount: number) {
     where: { userId },
     data: { xp: newXp, level: newLevel },
   });
-  return { xp: newXp, level: newLevel, levelUp: newLevel > stats.level };
+
+  let milestoneReward = 0;
+  for (let lvl = stats.level + 1; lvl <= newLevel; lvl++) {
+    if (LEVEL_MILESTONE_PART[lvl]) milestoneReward += LEVEL_MILESTONE_PART[lvl];
+  }
+  if (milestoneReward > 0) {
+    await prisma.user.update({ where: { id: userId }, data: { earningsPart: { increment: milestoneReward } } });
+  }
+
+  return { xp: newXp, level: newLevel, levelUp: newLevel > stats.level, milestoneReward };
 }
 
 export async function registerGamificationRoutes(app: FastifyInstance) {

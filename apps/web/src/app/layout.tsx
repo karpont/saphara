@@ -1,5 +1,6 @@
 import "./globals.css";
 import type { ReactNode } from "react";
+import { Toaster } from "sonner";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { Providers } from "./providers";
@@ -57,6 +58,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               <CookieBanner />
               <MobileNav />
               <OnboardingModal />
+              <Toaster theme="dark" position="top-center" richColors />
             </ThemeProvider>
           </Providers>
         </NextIntlClientProvider>

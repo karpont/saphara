@@ -6,6 +6,7 @@ import {
   Trophy, Flame, Star, Gift, CheckCircle2, Clock, Zap, Users, Target,
   Copy, Share2, TrendingUp, Calendar, Lock, ChevronRight,
 } from "lucide-react";
+import { toast } from "sonner";
 import { api } from "../../lib/api";
 
 function useGamificationStats() {
@@ -143,10 +144,10 @@ function OverviewTab() {
           <div key={lvl} className="reward-milestone">
             <div className="milestone-level">Sv {lvl}</div>
             <div className="milestone-reward">
-              {lvl === 5 && "🎁 50 PART"}
-              {lvl === 10 && "👑 Özel Rozet"}
-              {lvl === 20 && "💎 200 PART + Çerçeve"}
-              {lvl === 30 && "🚀 500 PART + Avatar"}
+              {lvl === 5 && "🎁 20 PART"}
+              {lvl === 10 && "👑 PART Supporter Unvanı"}
+              {lvl === 20 && "💎 80 PART"}
+              {lvl === 30 && "🚀 150 PART"}
               {lvl === 50 && "⚡ Efsane Unvanı"}
             </div>
           </div>
@@ -162,7 +163,12 @@ function QuestsTab() {
   const qc = useQueryClient();
   const claim = useMutation({
     mutationFn: (id: string) => api.post<any>(`/gamification/quests/${id}/claim`, {}),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["quests"] }); qc.invalidateQueries({ queryKey: ["gami-stats"] }); },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["quests"] });
+      qc.invalidateQueries({ queryKey: ["gami-stats"] });
+      toast.success(`+${data?.xpReward ?? 0} XP${Number(data?.partReward) > 0 ? ` · +${data.partReward} PART` : ""} kazandın!`);
+    },
+    onError: (err) => toast.error((err as Error).message || "Ödül alınamadı, tekrar dene."),
   });
 
   const items: any[] = quests.data?.quests ?? [];
@@ -270,7 +276,7 @@ function ReferralTab({ code }: { code?: string }) {
       <div className="referral-hero">
         <Users size={40} color="#818cf8" />
         <h3>Arkadaşını Davet Et, PART Kazan!</h3>
-        <p className="muted">Her başarılı davet için <strong>100 PART + 200 XP</strong> kazan.<br />Davet ettiğin kişi de <strong>50 PART + 100 XP</strong> alır.</p>
+        <p className="muted">Her başarılı davette <strong>1-50 PART</strong> kazan — ne kadar çok davet edersen birim ödülün o kadar artar (5. davette 1 PART, 50. davette 50 PART).<br />Davet ettiğin kişi de yarısı kadar hoş geldin ödülü alır.</p>
       </div>
 
       {code && (
@@ -306,7 +312,11 @@ function ReferralTab({ code }: { code?: string }) {
           {useCode.isPending ? "..." : "Uygula"}
         </button>
       </div>
-      {useCode.isSuccess && <p style={{ color: "#3fb950", marginTop: 8 }}>✓ +100 PART ve +100 XP kazandınız!</p>}
+      {useCode.isSuccess && (
+        <p style={{ color: "#3fb950", marginTop: 8 }}>
+          ✓ +{useCode.data?.partEarned ?? 0} PART ve +{useCode.data?.xpEarned ?? 0} XP kazandınız!
+        </p>
+      )}
       {useCode.isError && <p style={{ color: "var(--danger)", marginTop: 8 }}>{(useCode.error as Error).message}</p>}
 
       <div className="referral-steps">

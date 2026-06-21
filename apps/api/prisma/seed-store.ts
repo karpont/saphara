@@ -19,6 +19,40 @@ const ITEMS = [
   { kind: "avatar", name: "Kurbağa",         imageUrl: "avatar-frog",    pricePart: "20",  priceUsd: 0.20 },
   { kind: "avatar", name: "Ördek",           imageUrl: "avatar-duck",    pricePart: "20",  priceUsd: 0.20 },
   { kind: "avatar", name: "Hamster",         imageUrl: "avatar-hamster", pricePart: "20",  priceUsd: 0.20 },
+  { kind: "avatar", name: "At",              imageUrl: "avatar-horse",   pricePart: "35",  priceUsd: 0.35 },
+  { kind: "avatar", name: "Köpek",           imageUrl: "avatar-dog",     pricePart: "25",  priceUsd: 0.25 },
+  { kind: "avatar", name: "Kaplan",          imageUrl: "avatar-tiger",   pricePart: "55",  priceUsd: 0.55 },
+  { kind: "avatar", name: "Kaplumbağa",      imageUrl: "avatar-turtle",  pricePart: "20",  priceUsd: 0.20 },
+  { kind: "avatar", name: "Kartal",          imageUrl: "avatar-eagle",   pricePart: "45",  priceUsd: 0.45 },
+  { kind: "avatar", name: "Kirpi",           imageUrl: "avatar-hedgehog",pricePart: "20",  priceUsd: 0.20 },
+  { kind: "avatar", name: "Koyun",           imageUrl: "avatar-sheep",   pricePart: "20",  priceUsd: 0.20 },
+  { kind: "avatar", name: "Maymun",          imageUrl: "avatar-monkey",  pricePart: "30",  priceUsd: 0.30 },
+  { kind: "avatar", name: "Zürafa",          imageUrl: "avatar-giraffe", pricePart: "35",  priceUsd: 0.35 },
+  { kind: "avatar", name: "Yunus",           imageUrl: "avatar-dolphin", pricePart: "40",  priceUsd: 0.40 },
+  { kind: "avatar", name: "Fil",             imageUrl: "avatar-elephant",pricePart: "35",  priceUsd: 0.35 },
+  { kind: "avatar", name: "Geyik",           imageUrl: "avatar-deer",    pricePart: "30",  priceUsd: 0.30 },
+
+  // ── İnsan Figürleri (20 farklı, sevimli/karikatür stil) ──
+  { kind: "avatar", name: "Kripto Kahini",      imageUrl: "https://api.dicebear.com/9.x/avataaars/svg?seed=h1&backgroundColor=b6e3f4",  pricePart: "30", priceUsd: 0.30 },
+  { kind: "avatar", name: "Pixel Sanatçı",      imageUrl: "https://api.dicebear.com/9.x/avataaars/svg?seed=h2&backgroundColor=ffd5dc",  pricePart: "30", priceUsd: 0.30 },
+  { kind: "avatar", name: "Web3 Kaşifi",        imageUrl: "https://api.dicebear.com/9.x/avataaars/svg?seed=h3&backgroundColor=c0aede",  pricePart: "30", priceUsd: 0.30 },
+  { kind: "avatar", name: "DeFi Gezgini",       imageUrl: "https://api.dicebear.com/9.x/avataaars/svg?seed=h4&backgroundColor=ffdfbf",  pricePart: "30", priceUsd: 0.30 },
+  { kind: "avatar", name: "NFT Koleksiyoncu",   imageUrl: "https://api.dicebear.com/9.x/avataaars/svg?seed=h5&backgroundColor=d1d4f9",  pricePart: "35", priceUsd: 0.35 },
+  { kind: "avatar", name: "BNB Madencisi",      imageUrl: "https://api.dicebear.com/9.x/personas/svg?seed=h6&backgroundColor=b6f4b6",   pricePart: "30", priceUsd: 0.30 },
+  { kind: "avatar", name: "Zincir Gezgini",     imageUrl: "https://api.dicebear.com/9.x/personas/svg?seed=h7&backgroundColor=b6e3f4",   pricePart: "30", priceUsd: 0.30 },
+  { kind: "avatar", name: "Token Avcısı",       imageUrl: "https://api.dicebear.com/9.x/personas/svg?seed=h8&backgroundColor=ffd5dc",   pricePart: "30", priceUsd: 0.30 },
+  { kind: "avatar", name: "Saphara Elçisi",     imageUrl: "https://api.dicebear.com/9.x/personas/svg?seed=h9&backgroundColor=c0aede",   pricePart: "40", priceUsd: 0.40 },
+  { kind: "avatar", name: "Staking Şövalyesi",  imageUrl: "https://api.dicebear.com/9.x/personas/svg?seed=h10&backgroundColor=ffdfbf",  pricePart: "40", priceUsd: 0.40 },
+  { kind: "avatar", name: "Mum Grafik Ustası",  imageUrl: "https://api.dicebear.com/9.x/micah/svg?seed=h11&backgroundColor=d1d4f9",     pricePart: "30", priceUsd: 0.30 },
+  { kind: "avatar", name: "Whitepaper Yazarı",  imageUrl: "https://api.dicebear.com/9.x/micah/svg?seed=h12&backgroundColor=b6f4b6",     pricePart: "30", priceUsd: 0.30 },
+  { kind: "avatar", name: "HODL Ustası",        imageUrl: "https://api.dicebear.com/9.x/micah/svg?seed=h13&backgroundColor=b6e3f4",     pricePart: "35", priceUsd: 0.35 },
+  { kind: "avatar", name: "Cüzdan Bekçisi",     imageUrl: "https://api.dicebear.com/9.x/micah/svg?seed=h14&backgroundColor=ffd5dc",     pricePart: "30", priceUsd: 0.30 },
+  { kind: "avatar", name: "DAO Temsilcisi",     imageUrl: "https://api.dicebear.com/9.x/lorelei/svg?seed=h15&backgroundColor=c0aede",   pricePart: "40", priceUsd: 0.40 },
+  { kind: "avatar", name: "Launchpad Lideri",   imageUrl: "https://api.dicebear.com/9.x/lorelei/svg?seed=h16&backgroundColor=ffdfbf",   pricePart: "40", priceUsd: 0.40 },
+  { kind: "avatar", name: "Reels Yapımcısı",    imageUrl: "https://api.dicebear.com/9.x/lorelei/svg?seed=h17&backgroundColor=d1d4f9",   pricePart: "30", priceUsd: 0.30 },
+  { kind: "avatar", name: "Stüdyo Editörü",     imageUrl: "https://api.dicebear.com/9.x/notionists/svg?seed=h18&backgroundColor=b6f4b6",pricePart: "35", priceUsd: 0.35 },
+  { kind: "avatar", name: "Topluluk Yöneticisi",imageUrl: "https://api.dicebear.com/9.x/notionists/svg?seed=h19&backgroundColor=b6e3f4",pricePart: "35", priceUsd: 0.35 },
+  { kind: "avatar", name: "Saphara Lejantı",    imageUrl: "https://api.dicebear.com/9.x/notionists/svg?seed=h20&backgroundColor=fde68a",pricePart: "60", priceUsd: 0.60 },
 
   // ── Çerçeveler (10 farklı) ──
   { kind: "frame", name: "Altın Çerçeve",      imageUrl: "frame-gold",    pricePart: "50",  priceUsd: 0.50 },
@@ -64,7 +98,7 @@ async function main() {
   let created = 0;
   for (const item of ITEMS) {
     const exists = await prisma.storeItem.findFirst({
-      where: { name: item.name, kind: item.kind }
+      where: { name: item.name, kind: item.kind as any }
     });
     if (exists) continue;
     await prisma.storeItem.create({ data: item as any });

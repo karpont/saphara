@@ -3,7 +3,15 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Users, Plus, Search, Lock, Globe, UserPlus, UserMinus, ChevronRight, Loader2, X } from "lucide-react";
+import { toast } from "sonner";
 import { api } from "../../lib/api";
+
+function joinErrorMessage(err: unknown): string {
+  const msg = (err as Error)?.message ?? "";
+  if (msg.includes("401") || msg.toLowerCase().includes("sign in") || msg.toLowerCase().includes("auth"))
+    return "Topluluğa katılmak için cüzdanınla giriş yapmalısın.";
+  return "Bir şeyler ters gitti, lütfen tekrar dene.";
+}
 
 function useCommunities(q?: string) {
   return useQuery({
@@ -25,7 +33,12 @@ export function Communities() {
 
   const join = useMutation({
     mutationFn: (slug: string) => api.post<any>(`/communities/${slug}/join`, {}),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["communities"] }); qc.invalidateQueries({ queryKey: ["my-communities"] }); },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["communities"] });
+      qc.invalidateQueries({ queryKey: ["my-communities"] });
+      toast.success(data?.joined === false ? "Topluluktan ayrıldın" : "Topluluğa katıldın!");
+    },
+    onError: (err) => toast.error(joinErrorMessage(err)),
   });
 
   return (
@@ -105,7 +118,8 @@ function MyCommunities() {
   const qc = useQueryClient();
   const leave = useMutation({
     mutationFn: (slug: string) => api.post<any>(`/communities/${slug}/join`, {}),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["my-communities"] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["my-communities"] }); toast.success("Topluluktan ayrıldın"); },
+    onError: (err) => toast.error(joinErrorMessage(err)),
   });
 
   const items = data?.items ?? [];

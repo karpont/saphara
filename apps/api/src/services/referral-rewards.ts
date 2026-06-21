@@ -1,15 +1,14 @@
 /**
  * Referral ödül hesaplama — kademeli, USD değeri sabit (PART fiyatına göre otomatik ayarlanır).
- * Baz: $0.01/PART fiyatında 5/10/15/20/25 PART hedefleri.
+ * Baz: $0.01/PART fiyatında 1/10/20/50 PART hedefleri (5/10/20/50. davet kademeleri).
  */
 import { getPartMarketData } from "./market-data";
 
 const USD_TIERS: { maxCount: number; usdTarget: number }[] = [
-  { maxCount: 10,       usdTarget: 0.05 }, // 1-10. referral   → 5 PART
-  { maxCount: 20,       usdTarget: 0.10 }, // 11-20. referral  → 10 PART
-  { maxCount: 30,       usdTarget: 0.15 }, // 21-30. referral  → 15 PART
-  { maxCount: 40,       usdTarget: 0.20 }, // 31-40. referral  → 20 PART
-  { maxCount: Infinity, usdTarget: 0.25 }, // 41+. referral    → 25 PART
+  { maxCount: 5,        usdTarget: 0.01 }, // 1-5. referral    → 1 PART
+  { maxCount: 10,       usdTarget: 0.10 }, // 6-10. referral   → 10 PART
+  { maxCount: 20,       usdTarget: 0.20 }, // 11-20. referral  → 20 PART
+  { maxCount: Infinity, usdTarget: 0.50 }, // 21+. referral    → 50 PART
 ];
 
 const MIN_PRICE_FLOOR = 0.0001; // priceUsd 0'a yakınsa bölme patlamasın
