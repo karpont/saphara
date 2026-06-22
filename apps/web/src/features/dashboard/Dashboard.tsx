@@ -183,11 +183,11 @@ export function Dashboard() {
 
       {/* KPI Kartları */}
       <div className="dash-kpis">
-        <KpiCard icon={Users}       label="Takipçi"        value={followers.toLocaleString()}
+        <KpiCard icon={Users}       label="Takipçi"        value={followers.toLocaleString("en-US")}
           delta={`${followerDelta >= 0 ? "+" : ""}${followerDelta} / 7g`} up={followerDelta >= 0} />
         <KpiCard icon={Eye}         label="Gösterim"       value={impressions > 1000 ? `${(impressions / 1000).toFixed(1)}K` : String(impressions)} />
         <KpiCard icon={Heart}       label="Etkileşim"      value={`%${er}`} />
-        <KpiCard icon={Coins}       label="Kazanç (PART)"  value={earningsPart.toLocaleString()} accent />
+        <KpiCard icon={Coins}       label="Kazanç (PART)"  value={earningsPart.toLocaleString("en-US")} accent />
         <KpiCard icon={DollarSign}  label="Kazanç (USDT)"  value={`$${Number(earningsUsdt).toFixed(2)}`} />
       </div>
 

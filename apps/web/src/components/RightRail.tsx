@@ -141,7 +141,7 @@ export function RightRail() {
                 <a href={`/search?q=%23${h.tag}&type=posts`} className="trend-link">
                   <Hash size={12} /><span>#{h.tag}</span>
                 </a>
-                <small className="muted">{h.postCount.toLocaleString()} gönderi</small>
+                <small className="muted">{h.postCount.toLocaleString("en-US")} gönderi</small>
               </li>
             ))}
           </ul>

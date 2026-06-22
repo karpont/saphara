@@ -68,7 +68,7 @@ export function Gamification() {
             <div className="level-badge">{s.level}</div>
             <div>
               <strong className="level-title">{s.levelTitle}</strong>
-              <div className="muted" style={{ fontSize: 13 }}>{s.xp.toLocaleString()} XP · {s.xpToNext.toLocaleString()} XP'ye ihtiyaç</div>
+              <div className="muted" style={{ fontSize: 13 }}>{s.xp.toLocaleString("en-US")} XP · {s.xpToNext.toLocaleString("en-US")} XP'ye ihtiyaç</div>
             </div>
             <div style={{ marginLeft: "auto", textAlign: "right" }}>
               <div className="streak-badge"><Flame size={14} color="#f0b429" /> {s.loginStreak} gün</div>
@@ -245,7 +245,7 @@ function LeaderboardTab() {
             <div className="muted" style={{ fontSize: 12 }}>@{u.handle} · {u.levelTitle}</div>
           </div>
           <div className="lb-stats">
-            <div><Zap size={12} color="#818cf8" /> {u.xp.toLocaleString()} XP</div>
+            <div><Zap size={12} color="#818cf8" /> {u.xp.toLocaleString("en-US")} XP</div>
             <div className="muted" style={{ fontSize: 11 }}>Sv {u.level}</div>
           </div>
         </div>

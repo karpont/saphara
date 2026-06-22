@@ -188,7 +188,7 @@ export function NewsFeed() {
           {(crypto.data.items ?? []).map((c: any) => (
             <span key={c.symbol} className="ticker-item">
               <span className="ticker-sym">{c.symbol}</span>
-              <span className="ticker-price">${c.priceUsd < 1 ? c.priceUsd.toFixed(4) : c.priceUsd.toLocaleString()}</span>
+              <span className="ticker-price">${c.priceUsd < 1 ? c.priceUsd.toFixed(4) : c.priceUsd.toLocaleString("en-US")}</span>
               <span className={`ticker-change ${c.change24h >= 0 ? "up" : "dn"}`}>
                 {c.change24h >= 0 ? "▲" : "▼"}{Math.abs(c.change24h).toFixed(1)}%
               </span>

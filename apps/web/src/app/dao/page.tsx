@@ -117,7 +117,7 @@ function ProposalCard({ p, expanded, onToggle }: { p: any; expanded: boolean; on
 
         {p.treasuryAmount > 0 && (
           <div className="dao-treasury-note">
-            <Coins size={12} /> {Number(p.treasuryAmount).toLocaleString()} PART hazine talebi
+            <Coins size={12} /> {Number(p.treasuryAmount).toLocaleString("en-US")} PART hazine talebi
           </div>
         )}
 
@@ -125,12 +125,12 @@ function ProposalCard({ p, expanded, onToggle }: { p: any; expanded: boolean; on
           <div className="dao-vb-row">
             <span className="vb-label vb-for">Evet {forPct}%</span>
             <div className="vb-track"><div className="vb-fill vb-fill-for" style={{ width: `${forPct}%` }} /></div>
-            <span className="vb-val">{p.votesFor.toLocaleString()}</span>
+            <span className="vb-val">{p.votesFor.toLocaleString("en-US")}</span>
           </div>
           <div className="dao-vb-row">
             <span className="vb-label vb-ag">Hayır {agPct}%</span>
             <div className="vb-track"><div className="vb-fill vb-fill-ag" style={{ width: `${agPct}%` }} /></div>
-            <span className="vb-val">{p.votesAgainst.toLocaleString()}</span>
+            <span className="vb-val">{p.votesAgainst.toLocaleString("en-US")}</span>
           </div>
         </div>
 
@@ -257,7 +257,7 @@ export default function DaoPage() {
           <div className="dao-sdiv" />
           <div className="dao-stat">
             <Users size={16} style={{ color: "#3b82f6" }} />
-            <div><div className="dsn">{(stats.totalVotes ?? 0).toLocaleString()}</div><div className="dsl">Toplam Oy</div></div>
+            <div><div className="dsn">{(stats.totalVotes ?? 0).toLocaleString("en-US")}</div><div className="dsl">Toplam Oy</div></div>
           </div>
           <div className="dao-sdiv" />
           <div className="dao-stat">

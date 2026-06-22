@@ -117,8 +117,8 @@ function CampaignList({ campaigns, isLoading, onAction, onNew }: {
             </div>
 
             <div className="campaign-metrics">
-              <div className="metric"><Eye size={14} /><span>{c.impressions.toLocaleString()}</span><small>Gösterim</small></div>
-              <div className="metric"><MousePointer size={14} /><span>{c.clicks.toLocaleString()}</span><small>Tıklama</small></div>
+              <div className="metric"><Eye size={14} /><span>{c.impressions.toLocaleString("en-US")}</span><small>Gösterim</small></div>
+              <div className="metric"><MousePointer size={14} /><span>{c.clicks.toLocaleString("en-US")}</span><small>Tıklama</small></div>
               <div className="metric"><BarChart3 size={14} /><span>{ctr}%</span><small>CTR</small></div>
               <div className="metric"><DollarSign size={14} /><span>{Number(c.spentPart).toFixed(0)}</span><small>PART Harcandı</small></div>
             </div>
@@ -263,7 +263,7 @@ function CreateCampaign({ onDone }: { onDone: () => void }) {
             </div>
             {form.budgetPart && (
               <div className="budget-estimate">
-                Tahmini erişim: ~{Math.floor(Number(form.budgetPart) / (Number(form.bidPart) || 5)).toLocaleString()} gösterim
+                Tahmini erişim: ~{Math.floor(Number(form.budgetPart) / (Number(form.bidPart) || 5)).toLocaleString("en-US")} gösterim
               </div>
             )}
           </div>

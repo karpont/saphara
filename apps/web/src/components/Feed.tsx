@@ -283,17 +283,17 @@ function PostItem({ post, liked, reposted, onLike, onRepost, onTip, onComments, 
       <div className="post-actions">
         <button className={`action-btn like-btn ${liked ? "liked" : ""}`} onClick={onLike}>
           <Heart size={18} fill={liked ? "var(--danger)" : "none"} stroke={liked ? "var(--danger)" : "currentColor"} />
-          <span>{(post.likes + (liked ? 1 : 0)).toLocaleString()}</span>
+          <span>{(post.likes + (liked ? 1 : 0)).toLocaleString("en-US")}</span>
         </button>
 
         <button className="action-btn" onClick={onComments}>
           <MessageCircle size={18} />
-          <span>{post.comments.toLocaleString()}</span>
+          <span>{post.comments.toLocaleString("en-US")}</span>
         </button>
 
         <button className={`action-btn repost-btn ${reposted ? "on" : ""}`} onClick={onRepost}>
           <Repeat2 size={18} />
-          <span>{((p.repostCount ?? 0) + (reposted ? 1 : 0)).toLocaleString()}</span>
+          <span>{((p.repostCount ?? 0) + (reposted ? 1 : 0)).toLocaleString("en-US")}</span>
         </button>
 
         {post.author?.walletAddress && (

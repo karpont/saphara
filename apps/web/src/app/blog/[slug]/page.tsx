@@ -118,7 +118,7 @@ export default function BlogPostPage() {
             </div>
           </div>
           <div className="bp-stats">
-            <span>👁 {post.views.toLocaleString()}</span>
+            <span>👁 {post.views.toLocaleString("en-US")}</span>
           </div>
         </div>
 
@@ -168,7 +168,7 @@ export default function BlogPostPage() {
             disabled={!isAuthed || liked}
             title={isAuthed ? "Like" : "Connect wallet to like"}
           >
-            {liked ? "❤️" : "🤍"} {post.likes.toLocaleString()}
+            {liked ? "❤️" : "🤍"} {post.likes.toLocaleString("en-US")}
           </button>
           <button className="bp-share" onClick={() => {
             navigator.clipboard?.writeText(window.location.href);

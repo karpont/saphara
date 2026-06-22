@@ -267,7 +267,7 @@ function MarketListings() {
                     <div className="ml-price">
                       <DollarSign size={13} />
                       <strong>{usd} USDT</strong>
-                      <small>{Number(p.pricePart).toLocaleString()} PART</small>
+                      <small>{Number(p.pricePart).toLocaleString("en-US")} PART</small>
                     </div>
                     <button
                       className="ml-buy-btn"
@@ -307,7 +307,7 @@ function MarketListings() {
               {quickView.description && <p className="ml-modal-desc">{quickView.description}</p>}
               <div className="ml-modal-price">
                 <div>
-                  <strong style={{ fontSize: 22 }}>{Number(quickView.pricePart).toLocaleString()} PART</strong>
+                  <strong style={{ fontSize: 22 }}>{Number(quickView.pricePart).toLocaleString("en-US")} PART</strong>
                   <span className="muted" style={{ fontSize: 13, marginLeft: 8 }}>${(Number(quickView.pricePart) * config.partUsdRate).toFixed(2)}</span>
                 </div>
                 <div className="ml-modal-fee">
@@ -545,7 +545,7 @@ function VirtualStore() {
                 <h3>{item.name}</h3>
                 <div className="price usdt">
                   <DollarSign size={15} /> {usdPrice} USDT
-                  <small className="muted"> · {Number(item.pricePart).toLocaleString()} PART</small>
+                  <small className="muted"> · {Number(item.pricePart).toLocaleString("en-US")} PART</small>
                 </div>
                 {has ? (
                   <button className="buy owned" disabled={equip.isPending} onClick={() => equip.mutate(has.id)}>

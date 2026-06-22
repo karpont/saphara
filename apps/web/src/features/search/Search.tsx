@@ -92,7 +92,7 @@ export function Search() {
                 </div>
               </a>
               <div className="search-user-meta">
-                <small className="muted">{(u._count?.followers ?? 0).toLocaleString()} takipçi</small>
+                <small className="muted">{(u._count?.followers ?? 0).toLocaleString("en-US")} takipçi</small>
                 <button
                   className="ghost-btn search-follow-btn"
                   onClick={() => toggleFollow.mutate({ id: u.id, follow: true })}

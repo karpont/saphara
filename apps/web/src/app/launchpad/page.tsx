@@ -52,7 +52,7 @@ function fmtPart(val: string | number) {
   const n = Number(val);
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return n.toLocaleString();
+  return n.toLocaleString("en-US");
 }
 
 const ANIMAL_LOGOS: Record<string, string> = {
@@ -110,7 +110,7 @@ function ProjectModal({ p, onClose, onParticipate }: { p: Project; onClose: () =
     setBusy(true); setMsg(null);
     try {
       await onParticipate(p.id, amount);
-      setMsg({ ok: true, text: `${Number(amount).toLocaleString()} PART ile katıldınız! ✓` });
+      setMsg({ ok: true, text: `${Number(amount).toLocaleString("en-US")} PART ile katıldınız! ✓` });
       setAmount("");
     } catch (e: any) {
       setMsg({ ok: false, text: e?.message?.slice(0, 80) ?? "Hata oluştu." });
@@ -170,7 +170,7 @@ function ProjectModal({ p, onClose, onParticipate }: { p: Project; onClose: () =
               <span className="lpm-stat-l">Hedef</span>
             </div>
             <div className="lpm-stat">
-              <span className="lpm-stat-v">{p.participants.toLocaleString()}</span>
+              <span className="lpm-stat-v">{p.participants.toLocaleString("en-US")}</span>
               <span className="lpm-stat-l">Katılımcı</span>
             </div>
           </div>
@@ -504,7 +504,7 @@ export default function LaunchpadPage() {
           </div>
           <div className="lp-hs-div" />
           <div className="lp-hero-stat">
-            <span className="lp-hs-num">{totalPart.toLocaleString()}</span>
+            <span className="lp-hs-num">{totalPart.toLocaleString("en-US")}</span>
             <span className="lp-hs-lbl">Katılımcı</span>
           </div>
           <div className="lp-hs-div" />
@@ -587,7 +587,7 @@ export default function LaunchpadPage() {
                   <p className="lp-card-desc">{p.description.slice(0, 120)}…</p>
 
                   <div className="lp-card-stats">
-                    <span><Users size={12} /> {p.participants.toLocaleString()}</span>
+                    <span><Users size={12} /> {p.participants.toLocaleString("en-US")}</span>
                     <span><TrendingUp size={12} /> {fmtPart(p.targetAmount)} PART</span>
                     <span><Shield size={12} /> {p.chain || "BSC"}</span>
                   </div>

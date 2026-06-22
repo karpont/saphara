@@ -70,7 +70,7 @@ const RISK_LABELS = { low: "Düşük Risk", medium: "Orta Risk", high: "Yüksek 
 function fmtPart(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
-  return n.toLocaleString();
+  return n.toLocaleString("en-US");
 }
 
 function NotifyButton() {
@@ -175,7 +175,7 @@ export default function StakingPage() {
         </div>
         <div className="stk-hero-divider" />
         <div className="stk-hero-stat">
-          <span className="stk-hero-num">{(stats.data?.totalStakers ?? 8120).toLocaleString()}</span>
+          <span className="stk-hero-num">{(stats.data?.totalStakers ?? 8120).toLocaleString("en-US")}</span>
           <span className="stk-hero-label">Aktif Staker</span>
         </div>
         <div className="stk-hero-divider" />
@@ -254,7 +254,7 @@ export default function StakingPage() {
                   </div>
 
                   <div className="stk-card-stats">
-                    <span><TrendingUp size={12} /> {(p.id === "flexible" ? 1240 : p.id === "30d" ? 3100 : p.id === "90d" ? 2800 : 980).toLocaleString()} staker</span>
+                    <span><TrendingUp size={12} /> {(p.id === "flexible" ? 1240 : p.id === "30d" ? 3100 : p.id === "90d" ? 2800 : 980).toLocaleString("en-US")} staker</span>
                     <span style={{ color: riskCol, fontWeight: 700 }}>
                       {RISK_LABELS[p.risk as keyof typeof RISK_LABELS]}
                     </span>

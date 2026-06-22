@@ -204,11 +204,11 @@ function ReelItem({ reel, active, onNext, onPrev, hasNext, hasPrev }: {
         <div className="reel-actions">
           <button onClick={() => { setLiked(v => !v); }} className={`reel-action-btn ${liked ? "on" : ""}`}>
             <Heart size={28} fill={liked ? "#f43f5e" : "none"} color={liked ? "#f43f5e" : "white"} />
-            <small>{likeCount.toLocaleString()}</small>
+            <small>{likeCount.toLocaleString("en-US")}</small>
           </button>
           <button className="reel-action-btn">
             <MessageCircle size={28} />
-            <small>{reel.comments.toLocaleString()}</small>
+            <small>{reel.comments.toLocaleString("en-US")}</small>
           </button>
           <button className={`reel-action-btn ${saved ? "on" : ""}`} onClick={() => setSaved(v => !v)}>
             <Bookmark size={26} fill={saved ? "var(--accent)" : "none"} color={saved ? "var(--accent)" : "white"} />

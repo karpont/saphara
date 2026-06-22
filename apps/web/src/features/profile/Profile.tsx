@@ -188,9 +188,9 @@ export function Profile({ handle = "creator" }: { handle?: string }) {
         )}
         <div className="profile-stats">
           <span><strong>{data._count?.posts ?? 0}</strong> gönderi</span>
-          <span><strong>{followers.toLocaleString()}</strong> takipçi</span>
+          <span><strong>{followers.toLocaleString("en-US")}</strong> takipçi</span>
           <span><strong>{data._count?.following ?? 0}</strong> takip</span>
-          <span className="earn"><Coins size={14} /> <strong>{Number(data.earningsPart ?? 0).toLocaleString()}</strong> PART</span>
+          <span className="earn"><Coins size={14} /> <strong>{Number(data.earningsPart ?? 0).toLocaleString("en-US")}</strong> PART</span>
         </div>
       </div>
 
@@ -225,7 +225,7 @@ function ProfileContent({ handle, tab, earningsPart }: { handle: string; tab: st
           <Coins size={28} style={{ color: "var(--accent)" }} />
           <div>
             <div style={{ fontSize: 28, fontWeight: 800, color: "var(--accent)" }}>
-              {Number(earningsPart ?? 0).toLocaleString()} PART
+              {Number(earningsPart ?? 0).toLocaleString("en-US")} PART
             </div>
             <div className="muted">Toplam bahşiş kazancı</div>
           </div>

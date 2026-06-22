@@ -217,7 +217,7 @@ export default function ReferralPage() {
                 <div className="ref-lb-handle">@{u.user?.handle}</div>
                 <div className="ref-lb-sub">{u.referralCount} davet</div>
               </div>
-              <div className="ref-lb-earned">{u.totalEarned.toLocaleString()} PART</div>
+              <div className="ref-lb-earned">{u.totalEarned.toLocaleString("en-US")} PART</div>
             </div>
           ))}
           <p className="ref-lb-note">* Bu ay en fazla davet eden ilk 3 kişi ekstra 500 PART bonus alır.</p>

@@ -101,7 +101,7 @@ export function Discover() {
             </div>
             <div className="disc-meta">
               <strong>{item.title}</strong>
-              <small className="muted">{item.views.toLocaleString()} izlenme · {item.category}</small>
+              <small className="muted">{item.views.toLocaleString("en-US")} izlenme · {item.category}</small>
             </div>
           </article>
         ))}
