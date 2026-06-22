@@ -103442,7 +103442,7 @@ async function runBotCycleOnce(count = 5) {
 
 // apps/api/src/server.ts
 var log4 = createLogger();
-var limiter = new RateLimiter(60, 1);
+var limiter = new RateLimiter(300, 5);
 async function main() {
   const app = (0, import_fastify.default)({ logger: false });
   const corsOrigin = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",").map((o2) => o2.trim()) : process.env.NODE_ENV === "production" ? false : true;

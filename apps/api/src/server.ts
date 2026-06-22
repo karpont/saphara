@@ -45,7 +45,14 @@ import { startSentinel, startAdAutomation } from "./services/scheduler";
 import { startContentBot, runBotCycleOnce } from "./services/content-bot";
 
 const log = createLogger();
-const limiter = new RateLimiter(60, 1); // 60 istek, saniyede 1 yenilenir
+/**
+ * SPA her sayfa geçişinde 8-10 paralel istek atıyor (ticker, market data, trending,
+ * notifications, owner/whoami, vs). Eski 60-kapasite/1-yenilenme limiti normal
+ * gezinmede bile saniyeler içinde tükeniyor ve 429 dalgasına yol açıyordu.
+ * Gerçek kötüye kullanımı (saniyede yüzlerce istek) hâlâ yakalayacak şekilde
+ * cömert tutuldu: 300 kapasite, saniyede 5 yenilenir (~300 istek/dk sürdürülebilir).
+ */
+const limiter = new RateLimiter(300, 5);
 
 async function main() {
   const app = Fastify({ logger: false });
